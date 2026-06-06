@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Django
+*.sqlite3
+/backend/staticfiles/
+/backend/mediafiles/
+/backend/logs/
+/backend/.env
+
+# Node / React
+node_modules/
+/frontend/dist/
+/frontend/.env
+/frontend/.env.local
+
+# VS Code
+.vscode/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.override.yml
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/

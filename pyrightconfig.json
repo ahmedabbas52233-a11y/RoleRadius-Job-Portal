@@ -1,0 +1,18 @@
+{
+  "include": ["backend"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/venv",
+    "**/migrations"
+  ],
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingTypeStubs": "none",
+  "reportIndexIssue": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportUnusedImport": "information",
+  "reportUnusedVariable": "information"
+}
