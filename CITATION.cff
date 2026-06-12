@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: "If you use this software in academic work, please cite it using the metadata below."
+
+title: "RoleRadius: An Open-Source AI-Powered Job Portal with TF-IDF Cosine Similarity Candidate Matching"
+version: 1.0.0
+date-released: "2026-06-07"
+license: MIT
+
+authors:
+  - family-names: "Hussain"
+    given-names: "Ahmad Abbas"
+    email: "Ahmedabbas52233@gmail.com"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+
+repository-code: "https://github.com/ahmedabbas52233-a11y/roleradius"
+url: "https://github.com/ahmedabbas52233-a11y/roleradius"
+doi: "10.5281/zenodo.XXXXXXX"
+
+abstract: >
+  RoleRadius is an open-source full-stack recruitment portal that applies
+  TF-IDF cosine similarity to intelligently match job seekers with relevant
+  vacancies. Built on Django REST Framework and React 18, the system provides
+  a complete recruitment workflow including job posting, a multi-stage
+  application pipeline, CV text extraction, and an AI-powered matching engine.
+  The platform is delivered with 61 automated tests, Docker containerisation,
+  and a GitHub Actions CI/CD pipeline.
+
+keywords:
+  - job portal
+  - recruitment technology
+  - TF-IDF
+  - cosine similarity
+  - natural language processing
+  - information retrieval
+  - Django
+  - React
+  - full-stack web application
+  - machine learning
+  - open source
+  - Python
+
+preferred-citation:
+  type: software
+  title: "RoleRadius: An Open-Source AI-Powered Job Portal with TF-IDF Cosine Similarity Candidate Matching"
+  authors:
+    - family-names: "Hussain"
+      given-names: "Ahmad Abbas"
+      email: "Ahmedabbas52233@gmail.com"
+  year: 2026
+  version: "1.0.0"
+  doi: "10.5281/zenodo.XXXXXXX"
+  url: "https://github.com/ahmedabbas52233-a11y/roleradius"
+  repository-code: "https://github.com/ahmedabbas52233-a11y/roleradius"
+  license: MIT

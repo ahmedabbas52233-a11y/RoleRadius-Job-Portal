@@ -901,3 +901,4 @@ class Command(BaseCommand):
         for c in CANDIDATES:
             self.stdout.write(f'    {c["email"]}')
         self.stdout.write('')
+# This file is intentionally left blank - new companies/jobs appended below via patch

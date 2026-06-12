@@ -1,0 +1,61 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement", "needs-triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your idea! Please describe the feature clearly so it can be evaluated.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the user need or gap this addresses.
+      placeholder: "e.g. Candidates have no way to be notified when a new matching job is posted..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like to see implemented.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there other ways to solve this?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Candidate features
+        - Recruiter features
+        - AI Matching
+        - Authentication / Security
+        - API
+        - Frontend / UI
+        - Performance
+        - Documentation
+        - DevOps / Infrastructure
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - Nice to have
+        - Would significantly improve my experience
+        - Blocking — I cannot use the project without this
+    validations:
+      required: true

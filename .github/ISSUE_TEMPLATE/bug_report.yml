@@ -1,0 +1,92 @@
+name: Bug Report
+description: Something is broken — help us fix it
+labels: ["bug", "needs-triage"]
+assignees: ["ahmedabbas52233-a11y"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug.
+        Please fill in as much detail as possible so it can be reproduced and fixed quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "e.g. When I click Apply on a job, the page shows a 500 error instead of a success message."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps to trigger the bug.
+      value: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened? Include error messages and stack traces.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Backend (Django API)
+        - Frontend (React)
+        - AI Matching Engine
+        - Authentication
+        - CV Upload
+        - Docker / Deployment
+        - Tests
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: "e.g. Windows 11, macOS 14, Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "e.g. 3.12.2 (run: python --version)"
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "e.g. 20.11.0 (run: node --version)"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste Django terminal output or browser console errors here.
+      render: shell

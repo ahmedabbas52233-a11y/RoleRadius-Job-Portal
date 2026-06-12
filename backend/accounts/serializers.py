@@ -37,7 +37,9 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(email=data['email'], password=data['password'])
+        # django-axes requires the request object to track failed attempts
+        request = self.context.get('request')
+        user = authenticate(request=request, email=data['email'], password=data['password'])
         if not user:
             raise serializers.ValidationError('Invalid email or password.')
         if not user.is_active:

@@ -46,7 +46,7 @@ def notify_candidate_on_status_change(sender, instance, created: bool, **kwargs)
             fail_silently=True,
         )
         logger.info(
-            'Status notification sent to %s for application %s → %s',
+            'Status notification sent to %s for application %s -> %s',
             candidate.email, application.id, status
         )
     except Exception as exc:

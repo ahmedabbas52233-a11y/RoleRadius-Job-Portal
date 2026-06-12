@@ -105,6 +105,12 @@ class LoginTests(TestCase):
         self.client = APIClient()
         self.url = reverse('login')
         self.user = make_candidate()
+        # Clear axes lockout records between tests
+        try:
+            from axes.models import AccessAttempt
+            AccessAttempt.objects.all().delete()
+        except Exception:
+            pass
 
     def test_login_returns_tokens(self):
         res = self.client.post(self.url, {'email': 'candidate@test.com', 'password': 'testpass123'})

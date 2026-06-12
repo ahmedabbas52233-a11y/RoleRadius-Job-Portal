@@ -2,6 +2,9 @@
 import os
 import sys
 
+# Force UTF-8 output on Windows (fixes UnicodeEncodeError with special chars)
+os.environ.setdefault('PYTHONUTF8', '1')
+
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'roleradius.settings')
