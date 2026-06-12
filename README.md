@@ -10,11 +10,11 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Tests](https://img.shields.io/badge/Tests-61_passing-22C55E?style=flat&logo=github-actions&logoColor=white)](https://github.com/ahmedabbas52233-a11y/roleradius/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20670553.svg)](https://doi.org/10.5281/zenodo.20670553)
 
 **Final Year Computer Science Dissertation Project**
 
-[Live Demo](#) · [API Docs](http://localhost:8000/api/schema/swagger-ui/) · [Zenodo Paper](docs/zenodo-paper.html) · [Report Bug](https://github.com/ahmedabbas52233-a11y/roleradius/issues)
+[Live Demo](#) · [API Docs](http://localhost:8000/api/schema/swagger-ui/) · [Zenodo Paper](docs/zenodo-paper.html) · [Report Bug](https://github.com/ahmedabbas52233-a11y/RoleRadius-Job-Portal/issues)
 
 ---
 
@@ -55,8 +55,6 @@
 - [Project Structure](#project-structure)
 - [How the AI Matching Works](#how-ai-matching-works)
 - [Deployment](#deployment)
-- [GitHub Setup Guide](#github-setup-guide)
-- [LinkedIn Announcement](#linkedin-announcement)
 - [Citation](#citation)
 - [Author](#author)
 - [Contributing](#contributing)
@@ -98,7 +96,7 @@ Unlike commercial platforms that use opaque proprietary algorithms, RoleRadius p
 - 📝 **Post jobs** with rich metadata: type, work mode, salary range, required skills
 - 👥 **View applicants** ranked by AI match score (highest compatibility first)
 - ⚡ **Move candidates** through the pipeline with one click
-- 📊 **Dashboard stats** — total applications, shortlisted, interview, offers
+- 📊 **Dashboard stats** — total applications, shortlisted, interviews, and offers
 - 🗑️ **Soft delete jobs** — preserves all application history
 - 📧 **Automatic notifications** — candidates are emailed on every status change
 
@@ -143,7 +141,7 @@ Unlike commercial platforms that use opaque proprietary algorithms, RoleRadius p
 
 **Step 1 — Clone the repository**
 ```bash
-git clone https://github.com/ahmedabbas52233-a11y/roleradius.git
+https://github.com/ahmedabbas52233-a11y/RoleRadius-Job-Portal.git
 cd roleradius
 ```
 
@@ -151,7 +149,7 @@ cd roleradius
 ```bash
 cd backend
 
-# Create and activate virtual environment
+# Create and activate a virtual environment
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 
@@ -318,7 +316,7 @@ roleradius/
 │   │   └── tests.py      # 14 tests
 │   ├── matching/         # AI engine
 │   │   ├── engine.py     # TF-IDF cosine similarity
-│   │   ├── views.py      # Matched jobs / candidates endpoints
+│   │   ├── views.py      # Matched jobs/candidates endpoints
 │   │   └── tests.py      # 15 tests
 │   └── roleradius/       # Django settings, URLs, pagination
 ├── frontend/
@@ -395,117 +393,9 @@ CSRF_TRUSTED_ORIGINS=https://yourdomain.com
 - [ ] PostgreSQL with connection pooling
 - [ ] Cloudinary configured for file uploads
 - [ ] SMTP email configured
-- [ ] `python manage.py collectstatic`
+- [ ] `python manage.py collectstatic.`
 - [ ] Run behind Nginx or a platform like Railway/Render/Heroku
 - [ ] HTTPS enabled (required for httpOnly secure cookies)
-
----
-
-## GitHub Setup Guide <a name="github-setup-guide"></a>
-
-### Repository description
-Set this in your repo **About** section (gear icon):
-```
-AI-powered job portal with TF-IDF cosine similarity matching — Django REST + React 18
-```
-
-### Repository topics
-Add these topics for discoverability:
-```
-job-portal  django  react  tfidf  nlp  machine-learning  python
-full-stack  postgresql  docker  final-year-project  open-source
-recruitment  cosine-similarity  information-retrieval  django-rest-framework
-```
-
-### Creating the v1.0.0 release
-
-1. Go to **Releases** → **Create a new release**
-2. Tag: `v1.0.0` (create new tag on publish)
-3. Title: `RoleRadius v1.0.0 — Initial Release`
-4. Use the [CHANGELOG.md](CHANGELOG.md) content as the release notes
-5. Click **Publish release**
-
-### Connecting to Zenodo for a DOI
-See [`docs/ZENODO_GUIDE.md`](docs/ZENODO_GUIDE.md) for step-by-step instructions.
-
----
-
-## LinkedIn Announcement <a name="linkedin-announcement"></a>
-
-Use this template when sharing your project on LinkedIn:
-
----
-
-**Option A — Technical audience**
-```
-🚀 Final Year Project: RoleRadius — AI-Powered Job Portal
-
-Excited to share my dissertation project: a full-stack job portal that uses
-TF-IDF cosine similarity to match candidates with relevant jobs!
-
-🤖 Key features:
-• AI matching engine producing visible 0–100% compatibility scores
-• Full application pipeline with automated email notifications
-• CV text extraction from PDF, DOCX, and TXT
-• httpOnly cookie JWT auth (no localStorage XSS vulnerability)
-• 61 automated tests + Docker + GitHub Actions CI/CD
-
-🛠 Built with:
-Django REST Framework · React 18 · PostgreSQL · scikit-learn · Tailwind CSS
-
-This project demonstrates that NLP techniques from information retrieval can
-make recruitment more transparent and explainable — candidates see exactly
-why they matched a role.
-
-🔗 GitHub: github.com/ahmedabbas52233-a11y/roleradius
-📄 Zenodo DOI: doi.org/10.5281/zenodo.XXXXXXX
-
-#FinalYearProject #Django #React #MachineLearning #Python #NLP #TechProject
-#ComputerScience #FullStack #OpenSource #JobPortal #TF-IDF
-```
-
-**Option B — Broader audience**
-```
-I just published my final year project — a job portal that actually tells you
-WHY you're a good fit for a role.
-
-Most job boards just show you listings. RoleRadius shows you a match score
-(like 73%) based on your actual skills, CV content, and job requirements —
-using the same text similarity algorithm Google uses for document search.
-
-I built the whole thing: the AI engine, the backend API, the frontend,
-tests, Docker, and CI/CD. It's open source — anyone can study, fork, or
-deploy it.
-
-Check it out 👇
-github.com/ahmedabbas52233-a11y/roleradius
-
-#FinishedProduct #CS #FinalYearProject #OpenSource #AI
-```
-
----
-
-## Citation <a name="citation"></a>
-
-If you use RoleRadius in academic work, please cite it:
-
-**BibTeX:**
-```bibtex
-@software{hussain2026roleradius,
-  author    = {Hussain, Ahmad Abbas},
-  title     = {{RoleRadius: An Open-Source AI-Powered Job Portal
-                with TF-IDF Cosine Similarity Candidate Matching}},
-  month     = jun,
-  year      = 2026,
-  publisher = {Zenodo},
-  version   = {1.0.0},
-  doi       = {10.5281/zenodo.XXXXXXX},
-  url       = {https://doi.org/10.5281/zenodo.XXXXXXX}
-}
-```
-
-**Harvard:**
-> Hussain, A. A. (2026) *RoleRadius: An Open-Source AI-Powered Job Portal* (Version 1.0.0) [Software]. Zenodo. https://doi.org/10.5281/zenodo.XXXXXXX
 
 ---
 
