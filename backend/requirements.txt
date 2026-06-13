@@ -23,7 +23,7 @@ python-magic-bin==0.4.14; sys_platform == "win32"
 python-magic==0.4.27; sys_platform != "win32"
 
 # ML matching
-scikit-learn==1.4.2
+scikit-learn==1.9.0
 numpy==1.26.4
 
 # Utilities
