@@ -7,17 +7,15 @@ on:
     branches: [main]
 
 jobs:
-  # ── Django backend tests ────────────────────────────────────────────────────
   backend:
-    name: Django Tests (Python 3.12)
+    name: Django Tests + Security Scan (Python 3.12)
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB:       roleradius_test
-          POSTGRES_USER:     postgres
+          POSTGRES_DB: roleradius_test
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         options: >-
           --health-cmd pg_isready
@@ -44,12 +42,29 @@ jobs:
           pip install setuptools
           pip install -r requirements.txt
 
+      - name: Security scan — pip-audit
+        run: |
+          cd backend
+          pip install pip-audit
+          pip-audit --desc || true  # warn but don't fail CI on advisories
+
+      - name: Run Django system check
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/roleradius_test
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-only
+          DEBUG: 'True'
+        run: |
+          cd backend
+          python manage.py check --deploy 2>&1 | grep -v "WARNINGS" || true
+          python manage.py check
+
       - name: Run tests
         env:
-          DATABASE_URL:  postgresql://postgres:postgres@localhost:5432/roleradius_test
-          SECRET_KEY:    ci-test-secret-key-not-for-production
-          DEBUG:         'True'
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/roleradius_test
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-only
+          DEBUG: 'True'
           EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+          PYTHONUTF8: '1'
         run: |
           cd backend
           python manage.py test --verbosity=2 --failfast
@@ -57,17 +72,15 @@ jobs:
       - name: Check for missing migrations
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/roleradius_test
-          SECRET_KEY:   ci-test-secret-key-not-for-production
-          DEBUG:        'True'
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-only
+          DEBUG: 'True'
         run: |
           cd backend
           python manage.py makemigrations --check --dry-run
 
-  # ── React frontend build check ──────────────────────────────────────────────
   frontend:
-    name: Frontend Build (Node 20)
+    name: Frontend Build + Lint (Node 20)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -79,13 +92,20 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
+        run: cd frontend && npm ci
+
+      - name: Security audit
+        run: cd frontend && npm audit --audit-level=high || true
 
       - name: Build production bundle
         env:
           VITE_API_URL: /api
-        run: |
-          cd frontend
-          npm run build
+        run: cd frontend && npm run build
+
+  docker:
+    name: Docker Compose Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker images
+        run: docker compose build --no-cache

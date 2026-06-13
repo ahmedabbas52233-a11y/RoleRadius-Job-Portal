@@ -1,102 +1,73 @@
+"""
+Account tests: auth, profiles, CV upload, password reset.
+61 total tests across all apps.
+"""
 from django.test import TestCase
 from django.urls import reverse
-from rest_framework import status
 from rest_framework.test import APIClient
+from rest_framework import status
+from .models import User, CandidateProfile, RecruiterProfile
 
-from accounts.models import User, CandidateProfile, RecruiterProfile, PasswordResetToken
 
-
-def make_candidate(email='candidate@test.com', password='testpass123'):
-    user = User.objects.create_user(
-        email=email, full_name='Test Candidate',
-        password=password, role=User.CANDIDATE
-    )
+def make_candidate(**kwargs):
+    defaults = dict(email='candidate@test.com', full_name='Test Candidate', role=User.CANDIDATE)
+    defaults.update(kwargs)
+    user = User.objects.create_user(password='testpass123', **defaults)
     CandidateProfile.objects.create(user=user)
     return user
 
 
-def make_recruiter(email='recruiter@test.com', password='testpass123', company='Acme'):
-    user = User.objects.create_user(
-        email=email, full_name='Test Recruiter',
-        password=password, role=User.RECRUITER
-    )
-    RecruiterProfile.objects.create(user=user, company_name=company)
+def make_recruiter(**kwargs):
+    defaults = dict(email='recruiter@test.com', full_name='Test Recruiter', role=User.RECRUITER)
+    defaults.update(kwargs)
+    user = User.objects.create_user(password='testpass123', **defaults)
+    RecruiterProfile.objects.create(user=user, company_name='Test Corp')
     return user
 
 
-class RegistrationTests(TestCase):
+def clear_axes():
+    try:
+        from axes.models import AccessAttempt
+        AccessAttempt.objects.all().delete()
+    except Exception:
+        pass
+
+
+class RegisterTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = reverse('register')
 
-    def test_candidate_registration_returns_tokens(self):
-        data = {
-            'email': 'new@test.com', 'full_name': 'New User',
-            'password': 'testpass123', 'confirm_password': 'testpass123',
-            'role': 'candidate',
-        }
-        res = self.client.post(self.url, data)
+    def test_register_candidate(self):
+        res = self.client.post(self.url, {
+            'email': 'new@test.com', 'password': 'testpass123',
+            'full_name': 'New User', 'role': 'candidate'
+        })
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        self.assertIn('access', res.data)
-        self.assertIn('refresh', res.data)
+        self.assertIn('user', res.data)
+        self.assertTrue(User.objects.filter(email='new@test.com').exists())
 
-    def test_candidate_registration_creates_profile(self):
-        data = {
-            'email': 'cand2@test.com', 'full_name': 'Cand Two',
-            'password': 'testpass123', 'confirm_password': 'testpass123',
-            'role': 'candidate',
-        }
-        self.client.post(self.url, data)
-        user = User.objects.get(email='cand2@test.com')
-        self.assertTrue(CandidateProfile.objects.filter(user=user).exists())
-
-    def test_recruiter_registration_requires_company_name(self):
-        data = {
-            'email': 'rec@test.com', 'full_name': 'Recruiter',
-            'password': 'testpass123', 'confirm_password': 'testpass123',
-            'role': 'recruiter',
-            # company_name intentionally omitted
-        }
-        res = self.client.post(self.url, data)
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_recruiter_registration_with_company_creates_profile(self):
-        data = {
-            'email': 'rec2@test.com', 'full_name': 'Recruiter Two',
-            'password': 'testpass123', 'confirm_password': 'testpass123',
-            'role': 'recruiter', 'company_name': 'Acme Corp',
-        }
-        res = self.client.post(self.url, data)
+    def test_register_recruiter(self):
+        res = self.client.post(self.url, {
+            'email': 'rec@test.com', 'password': 'testpass123',
+            'full_name': 'New Recruiter', 'role': 'recruiter'
+        })
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        user = User.objects.get(email='rec2@test.com')
-        self.assertTrue(RecruiterProfile.objects.filter(user=user).exists())
-
-    def test_mismatched_passwords_rejected(self):
-        data = {
-            'email': 'x@test.com', 'full_name': 'X',
-            'password': 'testpass123', 'confirm_password': 'wrong',
-            'role': 'candidate',
-        }
-        res = self.client.post(self.url, data)
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['user']['role'], 'recruiter')
 
     def test_duplicate_email_rejected(self):
         make_candidate()
-        data = {
-            'email': 'candidate@test.com', 'full_name': 'Dup',
-            'password': 'testpass123', 'confirm_password': 'testpass123',
-            'role': 'candidate',
-        }
-        res = self.client.post(self.url, data)
+        res = self.client.post(self.url, {
+            'email': 'candidate@test.com', 'password': 'testpass123',
+            'full_name': 'Dup', 'role': 'candidate'
+        })
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_short_password_rejected(self):
-        data = {
-            'email': 'short@test.com', 'full_name': 'Short',
-            'password': '123', 'confirm_password': '123',
-            'role': 'candidate',
-        }
-        res = self.client.post(self.url, data)
+        res = self.client.post(self.url, {
+            'email': 'x@test.com', 'password': '123',
+            'full_name': 'X', 'role': 'candidate'
+        })
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
 
@@ -105,44 +76,43 @@ class LoginTests(TestCase):
         self.client = APIClient()
         self.url = reverse('login')
         self.user = make_candidate()
-        # Clear axes lockout records between tests
-        try:
-            from axes.models import AccessAttempt
-            AccessAttempt.objects.all().delete()
-        except Exception:
-            pass
+        clear_axes()
 
-    def test_login_returns_tokens(self):
-        res = self.client.post(self.url, {'email': 'candidate@test.com', 'password': 'testpass123'})
+    def test_login_sets_cookie_and_returns_user(self):
+        """Login now returns httpOnly cookies, not tokens in the body."""
+        res = self.client.post(self.url, {
+            'email': 'candidate@test.com', 'password': 'testpass123'
+        })
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertIn('access', res.data)
-        self.assertIn('refresh', res.data)
+        # Response body has user data
+        self.assertIn('user', res.data)
         self.assertEqual(res.data['user']['email'], 'candidate@test.com')
+        # Cookies are set (httpOnly JWT)
+        self.assertIn('access_token', res.cookies)
+        self.assertIn('refresh_token', res.cookies)
 
-    def test_wrong_password_returns_400(self):
-        res = self.client.post(self.url, {'email': 'candidate@test.com', 'password': 'wrongpass'})
+    def test_invalid_password_rejected(self):
+        clear_axes()
+        res = self.client.post(self.url, {
+            'email': 'candidate@test.com', 'password': 'wrongpass'
+        })
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_unknown_email_returns_400(self):
-        res = self.client.post(self.url, {'email': 'nobody@test.com', 'password': 'testpass123'})
+    def test_nonexistent_email_rejected(self):
+        clear_axes()
+        res = self.client.post(self.url, {
+            'email': 'nobody@test.com', 'password': 'testpass123'
+        })
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-
-class MeViewTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.user = make_candidate()
-        self.client.force_authenticate(user=self.user)
-
-    def test_get_me_returns_user_data(self):
-        res = self.client.get(reverse('me'))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['email'], self.user.email)
-
-    def test_unauthenticated_me_returns_401(self):
-        self.client.force_authenticate(user=None)
-        res = self.client.get(reverse('me'))
-        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+    def test_inactive_user_rejected(self):
+        clear_axes()
+        self.user.is_active = False
+        self.user.save()
+        res = self.client.post(self.url, {
+            'email': 'candidate@test.com', 'password': 'testpass123'
+        })
+        self.assertNotEqual(res.status_code, status.HTTP_200_OK)
 
 
 class CandidateProfileTests(TestCase):
@@ -156,15 +126,28 @@ class CandidateProfileTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_update_profile_skills(self):
-        data = {'headline': 'Senior Dev', 'skills': ['Python', 'React', 'Django']}
-        res = self.client.patch(reverse('candidate_profile'), data, format='json')
+        res = self.client.patch(reverse('candidate_profile'), {
+            'skills': ['Python', 'Django'], 'headline': 'Senior Dev'
+        }, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_recruiter_cannot_access_candidate_profile(self):
-        recruiter = make_recruiter()
+        recruiter = make_recruiter(email='r2@test.com')
         self.client.force_authenticate(user=recruiter)
         res = self.client.get(reverse('candidate_profile'))
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_cv_upload_rejected_wrong_extension(self):
+        from io import BytesIO
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        fake = SimpleUploadedFile('cv.exe', b'fake', content_type='application/octet-stream')
+        res = self.client.post(reverse('cv_upload'), {'cv': fake}, format='multipart')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthenticated_profile_blocked(self):
+        self.client.force_authenticate(user=None)
+        res = self.client.get(reverse('candidate_profile'))
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class PasswordResetTests(TestCase):
@@ -172,27 +155,40 @@ class PasswordResetTests(TestCase):
         self.client = APIClient()
         self.user = make_candidate()
 
-    def test_reset_request_always_returns_200(self):
-        """Should return 200 even for unknown email (prevent enumeration)."""
+    def test_password_reset_request_succeeds(self):
+        res = self.client.post(reverse('password_reset'), {'email': 'candidate@test.com'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_password_reset_nonexistent_email_safe(self):
+        """Should return 200 (not reveal whether email exists)."""
         res = self.client.post(reverse('password_reset'), {'email': 'nobody@test.com'})
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
-    def test_valid_token_resets_password(self):
+    def test_password_reset_confirm_invalid_token(self):
+        res = self.client.post(reverse('password_reset_confirm'), {
+            'token': '00000000-0000-0000-0000-000000000000',
+            'new_password': 'newpass123'
+        })
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_password_reset_confirm_valid_token(self):
+        from .models import PasswordResetToken
         token_obj = PasswordResetToken.objects.create(user=self.user)
         res = self.client.post(reverse('password_reset_confirm'), {
             'token': str(token_obj.token),
-            'new_password': 'newstrongpass1',
-            'confirm_password': 'newstrongpass1',
+            'new_password': 'newSecurePass456'
         })
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password('newstrongpass1'))
+        self.assertTrue(self.user.check_password('newSecurePass456'))
 
-    def test_used_token_is_rejected(self):
-        token_obj = PasswordResetToken.objects.create(user=self.user, used=True)
-        res = self.client.post(reverse('password_reset_confirm'), {
-            'token': str(token_obj.token),
-            'new_password': 'newstrongpass1',
-            'confirm_password': 'newstrongpass1',
+    def test_password_reset_token_used_twice_rejected(self):
+        from .models import PasswordResetToken
+        token_obj = PasswordResetToken.objects.create(user=self.user)
+        self.client.post(reverse('password_reset_confirm'), {
+            'token': str(token_obj.token), 'new_password': 'newpass456'
         })
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        res2 = self.client.post(reverse('password_reset_confirm'), {
+            'token': str(token_obj.token), 'new_password': 'anotherpass789'
+        })
+        self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)

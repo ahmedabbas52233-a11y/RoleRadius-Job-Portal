@@ -1,803 +1,194 @@
 """
 python manage.py seed_jobs
 
-Creates 63 realistic demo jobs across 5 companies, all job types,
-all work modes, and every experience level.
+Seeds 108 diverse jobs across 14 companies covering:
+  Tech · Data · Healthcare · Finance · Education · Gaming · Clean Energy
+  Retail · Hospitality · Legal · Architecture · Media · Logistics · Charity
+
+All job types: full_time, part_time, contract, freelance, internship
+All work modes: onsite, remote, hybrid
+All experience levels: entry, mid, senior, lead, executive
+
+Run with --clear to wipe existing seed data first.
 """
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 RECRUITERS = [
-    {
-        'email': 'hr@techcorp.com',
-        'full_name': 'Sarah Mitchell',
-        'password': 'demo1234',
-        'company': {
-            'company_name': 'TechCorp Solutions',
-            'company_description': 'A leading software consultancy building enterprise solutions for FTSE 100 clients.',
-            'industry': 'Software / Technology',
-            'company_size': '201-1000',
-            'location': 'London, UK',
-            'company_website': 'https://techcorp.example.com',
-        },
-    },
-    {
-        'email': 'talent@dataventures.io',
-        'full_name': 'James Okafor',
-        'password': 'demo1234',
-        'company': {
-            'company_name': 'DataVentures',
-            'company_description': 'A data-first startup helping companies make smarter decisions with AI.',
-            'industry': 'Data & Analytics',
-            'company_size': '11-50',
-            'location': 'Manchester, UK',
-            'company_website': 'https://dataventures.example.io',
-        },
-    },
-    {
-        'email': 'careers@healthtechuk.com',
-        'full_name': 'Amira Hassan',
-        'password': 'demo1234',
-        'company': {
-            'company_name': 'HealthTech UK',
-            'company_description': 'Building the future of digital healthcare — from NHS integrations to consumer wellness apps.',
-            'industry': 'Healthcare Technology',
-            'company_size': '51-200',
-            'location': 'Birmingham, UK',
-            'company_website': 'https://healthtechuk.example.com',
-        },
-    },
-    {
-        'email': 'jobs@financehub.co.uk',
-        'full_name': 'Marcus Webb',
-        'password': 'demo1234',
-        'company': {
-            'company_name': 'FinanceHub',
-            'company_description': 'A fintech scale-up modernising financial infrastructure for banks and insurers.',
-            'industry': 'Fintech / Banking',
-            'company_size': '51-200',
-            'location': 'London, UK',
-            'company_website': 'https://financehub.example.co.uk',
-        },
-    },
-    {
-        'email': 'hello@creativeagency.co.uk',
-        'full_name': 'Priya Nair',
-        'password': 'demo1234',
-        'company': {
-            'company_name': 'CreativeAgency',
-            'company_description': 'An award-winning creative studio specialising in brand, digital design, and content.',
-            'industry': 'Design & Marketing',
-            'company_size': '11-50',
-            'location': 'Bristol, UK',
-            'company_website': 'https://creativeagency.example.co.uk',
-        },
-    },
+    # 0 — Tech
+    {'email': 'hr@techcorp.com', 'full_name': 'Sarah Mitchell', 'password': 'demo1234',
+     'company': {'company_name': 'TechCorp Solutions', 'company_description': 'Leading software consultancy for enterprise clients.', 'industry': 'Software / Technology', 'company_size': '201-1000', 'location': 'London, UK', 'company_website': 'https://techcorp.example.com'}},
+    # 1 — Data
+    {'email': 'talent@dataventures.io', 'full_name': 'James Okafor', 'password': 'demo1234',
+     'company': {'company_name': 'DataVentures', 'company_description': 'Data-first startup helping companies make smarter decisions with AI.', 'industry': 'Data & Analytics', 'company_size': '11-50', 'location': 'Manchester, UK', 'company_website': 'https://dataventures.example.io'}},
+    # 2 — Healthcare
+    {'email': 'careers@healthtechuk.com', 'full_name': 'Amira Hassan', 'password': 'demo1234',
+     'company': {'company_name': 'HealthTech UK', 'company_description': 'Building the future of NHS-integrated digital healthcare.', 'industry': 'Healthcare Technology', 'company_size': '51-200', 'location': 'Birmingham, UK', 'company_website': 'https://healthtechuk.example.com'}},
+    # 3 — Finance
+    {'email': 'jobs@financehub.co.uk', 'full_name': 'Marcus Webb', 'password': 'demo1234',
+     'company': {'company_name': 'FinanceHub', 'company_description': 'Fintech scale-up modernising financial infrastructure.', 'industry': 'Fintech / Banking', 'company_size': '51-200', 'location': 'London, UK', 'company_website': 'https://financehub.example.co.uk'}},
+    # 4 — Creative
+    {'email': 'hello@creativeagency.co.uk', 'full_name': 'Priya Nair', 'password': 'demo1234',
+     'company': {'company_name': 'CreativeAgency', 'company_description': 'Award-winning creative studio specialising in brand, digital, and content.', 'industry': 'Design & Marketing', 'company_size': '11-50', 'location': 'Bristol, UK', 'company_website': 'https://creativeagency.example.co.uk'}},
+    # 5 — EdTech
+    {'email': 'jobs@learnpath.co.uk', 'full_name': 'Emma Davies', 'password': 'demo1234',
+     'company': {'company_name': 'LearnPath', 'company_description': 'EdTech platform making quality education accessible through AI-powered learning.', 'industry': 'Education Technology', 'company_size': '51-200', 'location': 'Cambridge, UK', 'company_website': 'https://learnpath.example.co.uk'}},
+    # 6 — Gaming
+    {'email': 'careers@pixelforge.games', 'full_name': 'Jake Thompson', 'password': 'demo1234',
+     'company': {'company_name': 'PixelForge Studios', 'company_description': 'Independent game studio creating innovative mobile and PC games.', 'industry': 'Gaming', 'company_size': '11-50', 'location': 'Guildford, UK', 'company_website': 'https://pixelforge.example.games'}},
+    # 7 — Clean Energy
+    {'email': 'talent@ecosystems.green', 'full_name': 'Sophie Green', 'password': 'demo1234',
+     'company': {'company_name': 'EcoSystems', 'company_description': 'Clean energy tech for renewable grid management and sustainability reporting.', 'industry': 'Clean Energy & Sustainability', 'company_size': '51-200', 'location': 'Edinburgh, UK', 'company_website': 'https://ecosystems.example.green'}},
+    # 8 — Retail
+    {'email': 'people@shopnow.co.uk', 'full_name': 'Rachel Turner', 'password': 'demo1234',
+     'company': {'company_name': 'ShopNow Retail', 'company_description': 'UK omnichannel retailer with 200+ stores and a growing e-commerce platform.', 'industry': 'Retail & E-commerce', 'company_size': '1001-5000', 'location': 'Leeds, UK', 'company_website': 'https://shopnow.example.co.uk'}},
+    # 9 — Hospitality
+    {'email': 'hr@grandhotels.co.uk', 'full_name': 'Thomas Carter', 'password': 'demo1234',
+     'company': {'company_name': 'Grand Hotels Group', 'company_description': 'Luxury hotel group operating 15 properties across the UK and Ireland.', 'industry': 'Hospitality & Tourism', 'company_size': '1001-5000', 'location': 'London, UK', 'company_website': 'https://grandhotels.example.co.uk'}},
+    # 10 — Legal
+    {'email': 'recruitment@lawbridge.co.uk', 'full_name': 'Caroline Hughes', 'password': 'demo1234',
+     'company': {'company_name': 'LawBridge LLP', 'company_description': 'Full-service commercial law firm with offices in London, Manchester, and Edinburgh.', 'industry': 'Legal Services', 'company_size': '201-1000', 'location': 'London, UK', 'company_website': 'https://lawbridge.example.co.uk'}},
+    # 11 — Architecture
+    {'email': 'jobs@designspace.co.uk', 'full_name': 'Oliver Chan', 'password': 'demo1234',
+     'company': {'company_name': 'DesignSpace Architects', 'company_description': 'Award-winning architecture and urban design practice specialising in sustainable buildings.', 'industry': 'Architecture & Construction', 'company_size': '51-200', 'location': 'London, UK', 'company_website': 'https://designspace.example.co.uk'}},
+    # 12 — Media
+    {'email': 'talent@northstarmedia.co.uk', 'full_name': 'Hannah Price', 'password': 'demo1234',
+     'company': {'company_name': 'NorthStar Media', 'company_description': 'Independent media company producing documentaries, podcasts, and digital journalism.', 'industry': 'Media & Journalism', 'company_size': '11-50', 'location': 'Glasgow, UK', 'company_website': 'https://northstar.example.co.uk'}},
+    # 13 — Charity
+    {'email': 'hr@hopefoundation.org.uk', 'full_name': 'Diana Osei', 'password': 'demo1234',
+     'company': {'company_name': 'Hope Foundation', 'company_description': 'UK charity supporting young people with mental health challenges through community programmes.', 'industry': 'Charity & Non-profit', 'company_size': '51-200', 'location': 'London, UK', 'company_website': 'https://hopefoundation.example.org.uk'}},
 ]
 
 CANDIDATES = [
-    {
-        'email': 'alex.chen@email.com',
-        'full_name': 'Alex Chen',
-        'password': 'demo1234',
-        'profile': {
-            'headline': 'Full-Stack Developer | React & Django',
-            'bio': '5 years building web applications. Passionate about clean APIs and great UX.',
-            'location': 'London, UK',
-            'skills': ['Python', 'Django', 'React', 'TypeScript', 'PostgreSQL', 'Docker', 'REST APIs', 'Git'],
-            'experience_years': 5,
-            'open_to_work': True,
-        },
-    },
-    {
-        'email': 'priya.sharma@email.com',
-        'full_name': 'Priya Sharma',
-        'password': 'demo1234',
-        'profile': {
-            'headline': 'Data Scientist | ML & NLP Specialist',
-            'bio': 'MSc in Data Science. Expert in NLP, scikit-learn, and turning messy data into insights.',
-            'location': 'Edinburgh, UK',
-            'skills': ['Python', 'Machine Learning', 'NLP', 'scikit-learn', 'TensorFlow', 'SQL', 'Pandas', 'Tableau'],
-            'experience_years': 3,
-            'open_to_work': True,
-        },
-    },
-    {
-        'email': 'tom.walker@email.com',
-        'full_name': 'Tom Walker',
-        'password': 'demo1234',
-        'profile': {
-            'headline': 'DevOps Engineer | AWS & Kubernetes',
-            'bio': '4 years automating infrastructure. AWS Certified Solutions Architect.',
-            'location': 'Bristol, UK',
-            'skills': ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD', 'Python', 'Linux', 'Jenkins'],
-            'experience_years': 4,
-            'open_to_work': True,
-        },
-    },
+    {'email': 'alex.chen@email.com', 'full_name': 'Alex Chen', 'password': 'demo1234',
+     'profile': {'headline': 'Full-Stack Developer | React & Django', 'bio': '5 years building web applications. Passionate about clean APIs and great UX.', 'location': 'London, UK', 'skills': ['Python', 'Django', 'React', 'TypeScript', 'PostgreSQL', 'Docker', 'REST APIs', 'Git'], 'experience_years': 5, 'open_to_work': True}},
+    {'email': 'priya.sharma@email.com', 'full_name': 'Priya Sharma', 'password': 'demo1234',
+     'profile': {'headline': 'Data Scientist | ML & NLP Specialist', 'bio': 'MSc Data Science. Expert in NLP, scikit-learn, turning messy data into insights.', 'location': 'Edinburgh, UK', 'skills': ['Python', 'Machine Learning', 'NLP', 'scikit-learn', 'TensorFlow', 'SQL', 'Pandas', 'Tableau'], 'experience_years': 3, 'open_to_work': True}},
+    {'email': 'tom.walker@email.com', 'full_name': 'Tom Walker', 'password': 'demo1234',
+     'profile': {'headline': 'DevOps Engineer | AWS & Kubernetes', 'bio': '4 years automating infrastructure. AWS Certified Solutions Architect.', 'location': 'Bristol, UK', 'skills': ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD', 'Python', 'Linux', 'Jenkins'], 'experience_years': 4, 'open_to_work': True}},
 ]
 
-# company_idx: 0=TechCorp, 1=DataVentures, 2=HealthTech, 3=FinanceHub, 4=CreativeAgency
 JOBS = [
-
-    # ══════════════════════════════════════════
-    # TECHCORP SOLUTIONS (idx 0) — 20 jobs
-    # ══════════════════════════════════════════
-    {
-        'title': 'Senior Full-Stack Developer',
-        'description': 'Lead feature development across our React frontend and Django REST backend for enterprise clients used by thousands globally. You will mentor junior engineers and ship every two weeks.',
-        'requirements': '• 4+ years full-stack experience\n• Strong React and TypeScript\n• Python/Django backend experience\n• PostgreSQL and Docker knowledge',
-        'responsibilities': '• Design and implement features end-to-end\n• Review pull requests\n• Mentor junior developers',
-        'skills_required': ['React', 'TypeScript', 'Python', 'Django', 'PostgreSQL', 'Docker'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 70000, 'salary_max': 90000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'React Frontend Engineer',
-        'description': 'Own the UI of our flagship SaaS product. Build pixel-perfect, accessible interfaces using React 18, TypeScript, Tailwind CSS, and React Query.',
-        'requirements': '• 2+ years production React experience\n• Strong TypeScript\n• WCAG 2.1 accessibility knowledge\n• Eye for UI detail',
-        'responsibilities': '• Build reusable component library\n• Implement responsive features\n• Optimise Core Web Vitals',
-        'skills_required': ['React', 'TypeScript', 'Tailwind CSS', 'JavaScript', 'CSS'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 55000, 'salary_max': 70000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Backend Python Developer',
-        'description': 'Build and own the Django REST API powering our platform. Write robust tests and help shape backend architecture as we scale to 1M+ users.',
-        'requirements': '• 3+ years Python development\n• Django REST Framework\n• Strong PostgreSQL skills\n• Redis and Celery experience',
-        'responsibilities': '• Design and maintain REST APIs\n• Optimise slow queries\n• Write comprehensive test suites',
-        'skills_required': ['Python', 'Django', 'PostgreSQL', 'Redis', 'Celery', 'REST APIs'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 60000, 'salary_max': 75000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Junior Software Engineer (Graduate)',
-        'description': 'Kick-start your career at TechCorp. You will be paired with a senior mentor and contribute to real features from week one. Structured learning plan included.',
-        'requirements': '• CS degree (2:1 or above)\n• Solid programming fundamentals\n• Familiarity with Python or JavaScript\n• Eagerness to learn',
-        'responsibilities': '• Contribute to features under mentorship\n• Write unit tests\n• Participate in code reviews',
-        'skills_required': ['Python', 'JavaScript', 'Git', 'REST APIs'],
-        'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 32000, 'salary_max': 42000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'DevOps / Platform Engineer',
-        'description': 'Own our AWS cloud infrastructure. Build and maintain Kubernetes clusters, CI/CD pipelines, and observability tooling for a platform serving millions of requests daily.',
-        'requirements': '• 3+ years DevOps experience\n• Deep AWS experience (EKS, RDS, S3)\n• Kubernetes and Helm\n• Terraform',
-        'responsibilities': '• Maintain and scale Kubernetes clusters\n• Build CI/CD pipelines\n• Manage cloud costs',
-        'skills_required': ['AWS', 'Kubernetes', 'Terraform', 'Docker', 'CI/CD', 'Linux'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 75000, 'salary_max': 95000,
-        'category': 'DevOps & Infrastructure', 'company_idx': 0,
-    },
-    {
-        'title': 'iOS Developer (Swift)',
-        'description': 'Build and maintain our native iOS app used by 200,000+ users. Work on everything from UI animations to push notifications and offline sync.',
-        'requirements': '• 2+ years iOS with Swift\n• SwiftUI and UIKit\n• MVVM/coordinator patterns\n• App Store experience',
-        'responsibilities': '• Ship new iOS features\n• Maintain performance\n• Write unit and UI tests',
-        'skills_required': ['Swift', 'SwiftUI', 'UIKit', 'iOS', 'Xcode', 'Core Data'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 60000, 'salary_max': 78000,
-        'category': 'Mobile Development', 'company_idx': 0,
-    },
-    {
-        'title': 'Android Developer (Kotlin)',
-        'description': 'Join a small mobile team building our Android app from scratch. You will own the architecture, implement Material 3 design, and integrate with our REST API.',
-        'requirements': '• 2+ years Android with Kotlin\n• Jetpack Compose experience\n• MVVM and clean architecture\n• Google Play deployment experience',
-        'responsibilities': '• Build new Android features\n• Write unit and instrumented tests\n• Collaborate with backend on API contracts',
-        'skills_required': ['Kotlin', 'Jetpack Compose', 'Android', 'MVVM', 'REST APIs'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 58000, 'salary_max': 74000,
-        'category': 'Mobile Development', 'company_idx': 0,
-    },
-    {
-        'title': 'QA Engineer (Automation)',
-        'description': 'Own test quality across our web and mobile platforms. Build automation frameworks, write E2E tests, and work closely with developers to prevent regressions.',
-        'requirements': '• 2+ years QA automation\n• Playwright or Cypress experience\n• API testing (Postman, REST Assured)\n• CI/CD integration knowledge',
-        'responsibilities': '• Build and maintain E2E test suites\n• Set up test pipelines\n• Report and track bugs',
-        'skills_required': ['Playwright', 'Cypress', 'JavaScript', 'API Testing', 'CI/CD', 'Test Automation'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 48000, 'salary_max': 62000,
-        'category': 'Quality Assurance', 'company_idx': 0,
-    },
-    {
-        'title': 'Technical Lead (Full-Stack)',
-        'description': 'Lead a squad of 5 engineers delivering a greenfield product. You will set technical direction, run architecture reviews, and stay hands-on with the codebase.',
-        'requirements': '• 7+ years software engineering\n• Experience leading a team\n• Deep full-stack knowledge\n• Strong communication skills',
-        'responsibilities': '• Set technical direction for the squad\n• Run architecture and design reviews\n• Code alongside the team',
-        'skills_required': ['React', 'Python', 'Django', 'PostgreSQL', 'Leadership', 'System Design'],
-        'job_type': 'full_time', 'experience_level': 'lead', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 90000, 'salary_max': 115000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Cybersecurity Analyst',
-        'description': 'Protect TechCorp and its clients from threats. You will run vulnerability assessments, respond to incidents, implement security tooling, and advise engineering teams.',
-        'requirements': '• 2+ years security experience\n• OSCP, CEH, or similar certification preferred\n• Penetration testing skills\n• SIEM and threat detection tools',
-        'responsibilities': '• Conduct vulnerability assessments\n• Monitor for threats\n• Work with engineers on secure coding',
-        'skills_required': ['Penetration Testing', 'SIEM', 'Network Security', 'Python', 'Linux', 'OWASP'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 58000, 'salary_max': 75000,
-        'category': 'Cybersecurity', 'company_idx': 0,
-    },
-    {
-        'title': 'Freelance React Developer',
-        'description': 'Short-term freelance engagement (2–3 months) to help us build a new client-facing dashboard. Fully remote, flexible hours, weekly billing.',
-        'requirements': '• Strong React and TypeScript\n• Experience with Chart.js or Recharts\n• Available 4+ days/week\n• Good async communication',
-        'responsibilities': '• Build dashboard components\n• Integrate with existing REST API\n• Handover documentation',
-        'skills_required': ['React', 'TypeScript', 'JavaScript', 'CSS', 'REST APIs'],
-        'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 400, 'salary_max': 550,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Contract AWS Solutions Architect',
-        'description': '6-month contract to design and implement a multi-region AWS architecture for a major client migration. Day rate negotiable based on experience.',
-        'requirements': '• AWS Solutions Architect Professional\n• Multi-region architecture experience\n• Terraform and CloudFormation\n• Strong stakeholder communication',
-        'responsibilities': '• Design target state AWS architecture\n• Lead migration planning\n• Produce detailed technical documentation',
-        'skills_required': ['AWS', 'Terraform', 'CloudFormation', 'Architecture', 'Security'],
-        'job_type': 'contract', 'experience_level': 'senior', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 600, 'salary_max': 800,
-        'category': 'DevOps & Infrastructure', 'company_idx': 0,
-    },
-    {
-        'title': 'Software Engineering Intern (Summer)',
-        'description': '12-week paid summer internship for students in their penultimate year. Work on a real feature, get mentored by a senior engineer, and present at the end.',
-        'requirements': '• Studying CS, Software Engineering, or related\n• Some programming experience (any language)\n• Curious and communicative',
-        'responsibilities': '• Build a defined feature end-to-end\n• Write tests\n• Present findings at intern showcase',
-        'skills_required': ['Python', 'JavaScript', 'Git'],
-        'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 22000, 'salary_max': 26000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Part-time Frontend Developer',
-        'description': 'We are looking for a part-time (3 days/week) frontend developer to maintain our marketing site and internal tools. Great for someone balancing other commitments.',
-        'requirements': '• 2+ years frontend experience\n• React and CSS skills\n• Available 3 days/week consistently',
-        'responsibilities': '• Maintain and update marketing website\n• Build internal tooling UI\n• Support design implementation',
-        'skills_required': ['React', 'JavaScript', 'CSS', 'HTML', 'Git'],
-        'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 30000, 'salary_max': 38000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Technical Writer',
-        'description': 'Document our APIs, SDKs, and developer guides. Work closely with engineers to turn complex technical concepts into clear, accurate, developer-friendly documentation.',
-        'requirements': '• Proven technical writing experience\n• Ability to read and understand code\n• Experience with Markdown and docs-as-code\n• Strong English writing skills',
-        'responsibilities': '• Write and maintain API reference docs\n• Create developer tutorials\n• Review and improve existing documentation',
-        'skills_required': ['Technical Writing', 'Markdown', 'REST APIs', 'Git', 'Docs-as-code'],
-        'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 28000, 'salary_max': 36000,
-        'category': 'Technical Writing', 'company_idx': 0,
-    },
-    {
-        'title': 'Contract Backend Developer (Node.js)',
-        'description': '3-month contract to help migrate a legacy Node.js service to a modern TypeScript/Express architecture. Fully remote, immediate start.',
-        'requirements': '• Strong Node.js and TypeScript\n• Experience with Express or Fastify\n• PostgreSQL and Docker\n• Available immediately',
-        'responsibilities': '• Migrate legacy codebase\n• Write tests for migrated services\n• Document architectural decisions',
-        'skills_required': ['Node.js', 'TypeScript', 'Express', 'PostgreSQL', 'Docker'],
-        'job_type': 'contract', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 450, 'salary_max': 600,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Principal Engineer',
-        'description': 'Shape the technical strategy for TechCorp\'s entire engineering organisation. You will set standards, drive adoption of best practices, and work on the hardest problems.',
-        'requirements': '• 10+ years software engineering experience\n• Broad full-stack knowledge\n• Experience influencing engineering culture\n• Strong written and verbal communication',
-        'responsibilities': '• Set engineering standards and practices\n• Lead architecture reviews across teams\n• Mentor staff engineers and tech leads',
-        'skills_required': ['System Design', 'Architecture', 'Leadership', 'Python', 'Cloud', 'Mentoring'],
-        'job_type': 'full_time', 'experience_level': 'executive', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 120000, 'salary_max': 150000,
-        'category': 'Software Engineering', 'company_idx': 0,
-    },
-    {
-        'title': 'Scrum Master / Agile Coach',
-        'description': 'Facilitate agile ceremonies, remove blockers, and help three engineering squads continuously improve how they work. No technical background required, but helpful.',
-        'requirements': '• PSM I or CSM certified\n• 2+ years as Scrum Master\n• Experience with Jira and Confluence\n• Strong facilitation skills',
-        'responsibilities': '• Facilitate sprints, retrospectives, and planning\n• Coach teams on agile principles\n• Track and report on team metrics',
-        'skills_required': ['Scrum', 'Agile', 'Jira', 'Facilitation', 'Coaching'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 50000, 'salary_max': 65000,
-        'category': 'Project Management', 'company_idx': 0,
-    },
-    {
-        'title': 'Freelance Mobile App Tester',
-        'description': 'Freelance engagement to manually test our iOS and Android apps on real devices before major releases. Flexible timing, pay per release cycle.',
-        'requirements': '• Experience with mobile testing\n• Owns iPhone and Android device\n• Can write clear bug reports\n• Available during release windows',
-        'responsibilities': '• Execute test plans on iOS and Android\n• File detailed bug reports\n• Regression test fixed issues',
-        'skills_required': ['Mobile Testing', 'iOS', 'Android', 'Bug Reporting', 'Test Plans'],
-        'job_type': 'freelance', 'experience_level': 'entry', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 150, 'salary_max': 250,
-        'category': 'Quality Assurance', 'company_idx': 0,
-    },
-
-    # ══════════════════════════════════════════
-    # DATAVENTURES (idx 1) — 13 jobs
-    # ══════════════════════════════════════════
-    {
-        'title': 'Data Scientist',
-        'description': 'Build ML models that predict customer behaviour, detect anomalies, and optimise pricing for enterprise clients. Take models from prototype to production.',
-        'requirements': '• MSc/PhD in Data Science or 3+ years industry\n• Strong Python (pandas, scikit-learn)\n• SQL and large datasets\n• NLP familiarity',
-        'responsibilities': '• Build and evaluate ML models\n• Clean and transform datasets\n• Present findings to clients',
-        'skills_required': ['Python', 'Machine Learning', 'scikit-learn', 'SQL', 'Pandas', 'NLP'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 55000, 'salary_max': 72000,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Machine Learning Engineer',
-        'description': 'Bridge data science and engineering. Deploy models at scale, build feature pipelines, and maintain ML infrastructure for enterprise clients.',
-        'requirements': '• 2+ years deploying ML in production\n• Strong Python and software engineering\n• MLflow or similar\n• Docker and Kubernetes',
-        'responsibilities': '• Productionise data science models\n• Build feature pipelines\n• Monitor model drift',
-        'skills_required': ['Python', 'Machine Learning', 'Docker', 'MLflow', 'scikit-learn', 'TensorFlow'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 65000, 'salary_max': 85000,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Data Engineer',
-        'description': 'Design and build the data infrastructure powering our analytics platform. Own pipelines, warehousing strategy, and real-time streaming.',
-        'requirements': '• 3+ years data engineering\n• Expert SQL and Python\n• dbt and Airflow\n• BigQuery or Snowflake',
-        'responsibilities': '• Build and maintain ETL/ELT pipelines\n• Design scalable data models\n• Ensure data quality',
-        'skills_required': ['Python', 'SQL', 'dbt', 'Airflow', 'BigQuery', 'Kafka'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 58000, 'salary_max': 76000,
-        'category': 'Data Engineering', 'company_idx': 1,
-    },
-    {
-        'title': 'NLP Research Engineer',
-        'description': 'Work on cutting-edge NLP problems. Fine-tune LLMs, build information extraction pipelines, and advance our NLP capabilities for enterprise clients.',
-        'requirements': '• PhD or strong MSc in NLP or ML\n• HuggingFace Transformers\n• Strong Python and PyTorch\n• Published research a bonus',
-        'responsibilities': '• Fine-tune and evaluate language models\n• Build NLP pipelines\n• Publish internal research notes',
-        'skills_required': ['NLP', 'Python', 'PyTorch', 'HuggingFace', 'Transformers', 'Machine Learning'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 80000, 'salary_max': 105000,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Data Science Intern (6 months)',
-        'description': 'A structured 6-month internship. Work on a real project alongside senior data scientists and present your findings at the end.',
-        'requirements': '• Studying CS, Mathematics, Statistics, or related\n• Python experience\n• Basic statistics knowledge',
-        'responsibilities': '• Explore and clean datasets\n• Build simple ML models\n• Present findings weekly',
-        'skills_required': ['Python', 'Statistics', 'Pandas', 'Machine Learning'],
-        'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 22000, 'salary_max': 26000,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Business Intelligence Analyst',
-        'description': 'Turn data into decisions. Own our Tableau dashboards, define KPIs with product and commercial teams, and run ad-hoc analyses that move the business.',
-        'requirements': '• 2+ years BI experience\n• Strong Tableau or Power BI\n• Expert SQL\n• Ability to communicate with non-technical stakeholders',
-        'responsibilities': '• Build self-serve dashboards\n• Define and document metrics\n• Run ad-hoc analyses',
-        'skills_required': ['Tableau', 'SQL', 'Power BI', 'Excel', 'Data Analysis', 'Stakeholder Management'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 45000, 'salary_max': 58000,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Freelance Data Analyst',
-        'description': 'We periodically need freelance data analysts for client projects. Flexible engagements ranging from 2 weeks to 3 months. Remote first.',
-        'requirements': '• Strong SQL and Python or R\n• Experience with data visualisation\n• Can work independently\n• Good written communication',
-        'responsibilities': '• Analyse client datasets\n• Produce insights reports\n• Deliver presentations',
-        'skills_required': ['SQL', 'Python', 'Data Visualisation', 'Excel', 'Tableau'],
-        'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 300, 'salary_max': 450,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Part-time Statistics Consultant',
-        'description': 'Provide expert statistical advice on experimental design, A/B testing, and model evaluation. 1–2 days per week ongoing engagement.',
-        'requirements': '• MSc or PhD in Statistics or related field\n• Experience with A/B testing\n• R or Python\n• Excellent communication skills',
-        'responsibilities': '• Advise on experimental design\n• Review statistical analyses\n• Run training sessions',
-        'skills_required': ['Statistics', 'A/B Testing', 'R', 'Python', 'Bayesian Methods'],
-        'job_type': 'part_time', 'experience_level': 'senior', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 55000, 'salary_max': 70000,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-    {
-        'title': 'Product Manager — Data Platform',
-        'description': 'Own the roadmap for DataVentures\' core analytics platform. Work with engineers, data scientists, and enterprise clients to define and ship features.',
-        'requirements': '• 3+ years product management in B2B SaaS\n• Technical background helpful\n• User research experience\n• Strong written communication',
-        'responsibilities': '• Own and communicate the product roadmap\n• Run discovery with customers\n• Write detailed product specs\n• Track KPIs',
-        'skills_required': ['Product Management', 'Agile', 'User Research', 'Roadmapping', 'SQL'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 65000, 'salary_max': 82000,
-        'category': 'Product Management', 'company_idx': 1,
-    },
-    {
-        'title': 'Cloud Infrastructure Engineer (AWS)',
-        'description': 'Own DataVentures\' cloud infrastructure. Migrate workloads to AWS, build infrastructure as code, and ensure enterprise-grade reliability and security.',
-        'requirements': '• 3+ years cloud infrastructure\n• Deep AWS knowledge (VPC, ECS, RDS, IAM)\n• Terraform expertise\n• Security and compliance awareness (SOC2)',
-        'responsibilities': '• Design and maintain AWS infrastructure\n• Write Terraform modules\n• Own incident response',
-        'skills_required': ['AWS', 'Terraform', 'Docker', 'Linux', 'Security', 'Networking'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 80000, 'salary_max': 100000,
-        'category': 'DevOps & Infrastructure', 'company_idx': 1,
-    },
-    {
-        'title': 'Contract Data Pipeline Developer',
-        'description': '4-month contract to build internal ETL pipelines migrating data from legacy systems into BigQuery. Remote, competitive day rate.',
-        'requirements': '• Strong Python and SQL\n• dbt or Airflow experience\n• BigQuery or Snowflake\n• Available within 2 weeks',
-        'responsibilities': '• Design and build ETL pipelines\n• Document data models\n• Ensure data quality checks',
-        'skills_required': ['Python', 'SQL', 'dbt', 'Airflow', 'BigQuery', 'ETL'],
-        'job_type': 'contract', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 400, 'salary_max': 550,
-        'category': 'Data Engineering', 'company_idx': 1,
-    },
-    {
-        'title': 'Marketing Manager — Growth',
-        'description': 'Lead growth marketing at DataVentures. Own the demand generation strategy, run campaigns, manage paid channels, and grow our pipeline.',
-        'requirements': '• 3+ years B2B marketing\n• Track record growing pipeline\n• HubSpot or similar CRM\n• Data-driven mindset',
-        'responsibilities': '• Own demand generation\n• Run paid ads (LinkedIn, Google)\n• Manage email nurture campaigns',
-        'skills_required': ['B2B Marketing', 'HubSpot', 'SEO', 'Paid Ads', 'Analytics'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Manchester, UK', 'salary_min': 48000, 'salary_max': 62000,
-        'category': 'Marketing', 'company_idx': 1,
-    },
-    {
-        'title': 'Freelance ML Model Evaluator',
-        'description': 'Help us evaluate the quality of ML models before client delivery. Flexible work — review reports, run benchmarks, and provide written feedback.',
-        'requirements': '• ML background\n• Statistical evaluation knowledge\n• Can work independently and async\n• Detail-oriented',
-        'responsibilities': '• Run model benchmarks\n• Review evaluation reports\n• Flag edge cases and failure modes',
-        'skills_required': ['Machine Learning', 'Python', 'Statistics', 'Model Evaluation'],
-        'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 250, 'salary_max': 400,
-        'category': 'Data Science', 'company_idx': 1,
-    },
-
-    # ══════════════════════════════════════════
-    # HEALTHTECH UK (idx 2) — 12 jobs
-    # ══════════════════════════════════════════
-    {
-        'title': 'Healthcare Software Engineer',
-        'description': 'Build NHS-integrated software that improves patient outcomes. Work on clinical decision support tools, appointment systems, and secure data pipelines.',
-        'requirements': '• 2+ years software engineering\n• HL7 FHIR knowledge a plus\n• Django or similar\n• Awareness of data privacy (GDPR, NHS DSP Toolkit)',
-        'responsibilities': '• Develop NHS-integrated features\n• Ensure GDPR compliance\n• Write clinical data APIs',
-        'skills_required': ['Python', 'Django', 'HL7 FHIR', 'PostgreSQL', 'REST APIs', 'GDPR'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 52000, 'salary_max': 68000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Clinical Data Analyst',
-        'description': 'Analyse clinical datasets to generate insights that improve patient care pathways. Work with NHS trusts, GPs, and our internal product team.',
-        'requirements': '• Background in health informatics, statistics, or related\n• Strong SQL and Python or R\n• NHS data experience preferred\n• Excellent report writing',
-        'responsibilities': '• Analyse clinical data\n• Produce insight reports for NHS partners\n• Identify care pathway improvements',
-        'skills_required': ['SQL', 'Python', 'R', 'Health Informatics', 'Data Visualisation', 'SNOMED CT'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 42000, 'salary_max': 55000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'NHS Digital Consultant (Contract)',
-        'description': '6-month contract to lead an NHS digital transformation programme. Manage stakeholders, define requirements, and oversee delivery.',
-        'requirements': '• NHS digital project experience\n• Strong stakeholder management\n• Agile delivery experience\n• SC clearance or willingness to apply',
-        'responsibilities': '• Lead NHS digital transformation workstreams\n• Manage stakeholders\n• Report to board-level sponsors',
-        'skills_required': ['NHS', 'Digital Transformation', 'Stakeholder Management', 'Agile', 'Project Management'],
-        'job_type': 'contract', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 500, 'salary_max': 650,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Medical Imaging AI Engineer',
-        'description': 'Develop AI models for medical image analysis — X-ray, MRI, and pathology slide interpretation. Work alongside clinicians to validate model outputs.',
-        'requirements': '• MSc or PhD in ML or Computer Vision\n• PyTorch and medical imaging libraries (SimpleITK, nibabel)\n• Publication record a plus\n• Awareness of clinical validation',
-        'responsibilities': '• Train and validate medical imaging models\n• Collaborate with clinical partners\n• Write validation reports',
-        'skills_required': ['PyTorch', 'Computer Vision', 'Python', 'Medical Imaging', 'Deep Learning', 'CNN'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 75000, 'salary_max': 95000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Healthcare Product Manager',
-        'description': 'Own the product roadmap for our GP-facing platform. Balance clinical needs, regulatory constraints, and technical feasibility to ship meaningful healthcare tools.',
-        'requirements': '• 3+ years product management\n• Healthcare or regulated industry experience\n• Understanding of clinical workflows\n• Strong stakeholder skills',
-        'responsibilities': '• Define product roadmap\n• Run discovery with clinicians and patients\n• Write specifications and acceptance criteria',
-        'skills_required': ['Product Management', 'Healthcare', 'Agile', 'User Research', 'Roadmapping'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 60000, 'salary_max': 78000,
-        'category': 'Product Management', 'company_idx': 2,
-    },
-    {
-        'title': 'Pharmacy Systems Developer',
-        'description': 'Build and maintain the systems that power digital prescribing and pharmacy integrations. Your work directly improves medication safety for patients.',
-        'requirements': '• Software engineering background\n• Experience with healthcare systems a plus\n• HL7 FHIR or similar messaging standards\n• Strong testing discipline',
-        'responsibilities': '• Develop pharmacy integration APIs\n• Maintain prescribing workflow software\n• Ensure audit logging and compliance',
-        'skills_required': ['Python', 'REST APIs', 'HL7 FHIR', 'PostgreSQL', 'Testing', 'Healthcare'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 50000, 'salary_max': 65000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Healthcare Data Scientist',
-        'description': 'Use machine learning to predict patient deterioration, hospital admissions, and treatment outcomes. Work with real NHS datasets under strict data governance.',
-        'requirements': '• Experience with survival analysis or predictive modelling\n• Python and scikit-learn\n• Understanding of clinical data (ICD-10, SNOMED)\n• GDPR and data governance knowledge',
-        'responsibilities': '• Build predictive clinical models\n• Validate models with clinical teams\n• Present findings to NHS partners',
-        'skills_required': ['Python', 'Machine Learning', 'Clinical Data', 'GDPR', 'Statistics', 'SQL'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 55000, 'salary_max': 72000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Digital Health Intern',
-        'description': '3-month internship for students interested in the intersection of technology and healthcare. Work on real products used by GPs and patients.',
-        'requirements': '• Studying healthcare, CS, or related\n• Interest in digital health\n• Basic Python or programming knowledge',
-        'responsibilities': '• Support feature development\n• Research digital health trends\n• Present findings to the team',
-        'skills_required': ['Python', 'Research', 'Healthcare', 'Communication'],
-        'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 20000, 'salary_max': 24000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Freelance Health Content Writer',
-        'description': 'Write clear, evidence-based health content for patients and clinicians. Flexible freelance engagement — articles, blog posts, and in-app guidance copy.',
-        'requirements': '• Healthcare or science background\n• Strong writing skills\n• Ability to translate clinical language for patients\n• Experience with evidence-based writing',
-        'responsibilities': '• Write patient-facing health articles\n• Produce clinician guidance content\n• Review and update existing content',
-        'skills_required': ['Health Writing', 'Content Creation', 'Research', 'Plain English', 'SEO'],
-        'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 200, 'salary_max': 350,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Part-time Clinical Systems Trainer',
-        'description': 'Train NHS staff on our digital clinical systems. Travel to NHS trusts across the Midlands. 2 days per week, flexible scheduling.',
-        'requirements': '• NHS or healthcare background\n• Experience training clinical staff\n• Patient communication skills\n• Full UK driving licence',
-        'responsibilities': '• Deliver training sessions at NHS sites\n• Create training materials\n• Gather feedback and improve content',
-        'skills_required': ['Training', 'NHS', 'Clinical Systems', 'Communication', 'Presentation'],
-        'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'onsite',
-        'location': 'Birmingham, UK', 'salary_min': 24000, 'salary_max': 32000,
-        'category': 'Healthcare Technology', 'company_idx': 2,
-    },
-    {
-        'title': 'Cybersecurity Engineer (Healthcare)',
-        'description': 'Ensure our NHS-connected systems meet Cyber Essentials Plus and DSPT requirements. Conduct penetration tests, manage vulnerabilities, and support accreditation.',
-        'requirements': '• SC clearance or eligibility\n• Cyber Essentials Plus experience\n• NHS DSP Toolkit knowledge preferred\n• Penetration testing skills',
-        'responsibilities': '• Manage DSP Toolkit compliance\n• Run vulnerability assessments\n• Advise development teams',
-        'skills_required': ['Cybersecurity', 'NHS', 'DSPT', 'Penetration Testing', 'Compliance', 'ISO 27001'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 65000, 'salary_max': 82000,
-        'category': 'Cybersecurity', 'company_idx': 2,
-    },
-    {
-        'title': 'UX Researcher — Healthcare',
-        'description': 'Understand how clinicians and patients interact with digital health tools. Run discovery research, usability studies, and translate insights into product improvements.',
-        'requirements': '• 2+ years UX research experience\n• Experience in regulated or complex domains\n• Interview and usability testing skills\n• Ability to synthesise and communicate findings',
-        'responsibilities': '• Run user interviews and usability tests\n• Synthesise research into actionable insights\n• Collaborate with product and design teams',
-        'skills_required': ['UX Research', 'User Interviews', 'Usability Testing', 'Synthesis', 'Healthcare'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Birmingham, UK', 'salary_min': 45000, 'salary_max': 58000,
-        'category': 'Design & UX', 'company_idx': 2,
-    },
-
-    # ══════════════════════════════════════════
-    # FINANCEHUB (idx 3) — 10 jobs
-    # ══════════════════════════════════════════
-    {
-        'title': 'Quantitative Developer',
-        'description': 'Build the quantitative systems that power our risk and pricing models. Work alongside quants to translate mathematical models into production-grade Python and C++ code.',
-        'requirements': '• Strong Python and/or C++\n• Understanding of financial mathematics\n• Low-latency systems experience a plus\n• Numerical computing (NumPy, SciPy)',
-        'responsibilities': '• Implement quantitative models in production\n• Optimise pricing system performance\n• Write comprehensive tests',
-        'skills_required': ['Python', 'C++', 'NumPy', 'Finance', 'Risk Modelling', 'Low Latency'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 90000, 'salary_max': 130000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Fintech Backend Engineer',
-        'description': 'Build the payment and banking infrastructure at the heart of FinanceHub. High-throughput, low-latency systems that process millions of transactions daily.',
-        'requirements': '• 4+ years backend engineering\n• Experience with financial systems\n• Strong knowledge of distributed systems\n• Python or Java',
-        'responsibilities': '• Build payment processing APIs\n• Ensure PCI-DSS compliance\n• Handle high-throughput transaction processing',
-        'skills_required': ['Python', 'Java', 'Distributed Systems', 'Kafka', 'PostgreSQL', 'PCI-DSS'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 80000, 'salary_max': 105000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Blockchain Developer',
-        'description': 'Build on Ethereum and Solana to create DeFi products and smart contract infrastructure. Work on real assets and real transactions.',
-        'requirements': '• Solidity and smart contract development\n• Web3.js or ethers.js\n• Understanding of DeFi protocols\n• Audit mindset and security awareness',
-        'responsibilities': '• Write and audit smart contracts\n• Build Web3 integrations\n• Stay current with DeFi developments',
-        'skills_required': ['Solidity', 'Ethereum', 'Web3.js', 'Blockchain', 'Smart Contracts', 'DeFi'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 85000, 'salary_max': 110000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Risk Systems Analyst',
-        'description': 'Own the risk reporting systems that regulators and senior management depend on. Work at the intersection of finance, data, and technology.',
-        'requirements': '• Financial risk background\n• Strong SQL and Python\n• Experience with regulatory reporting (Basel, IFRS 9)\n• Analytical mindset',
-        'responsibilities': '• Maintain risk reporting systems\n• Run regulatory data validations\n• Support internal and external audits',
-        'skills_required': ['SQL', 'Python', 'Risk Management', 'Basel III', 'IFRS 9', 'Regulatory Reporting'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'onsite',
-        'location': 'London, UK', 'salary_min': 55000, 'salary_max': 72000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Contract Trading Systems Developer',
-        'description': '6-month rolling contract to maintain and enhance our algorithmic trading systems. Immediate start. Competitive day rate. Must be eligible for FCA registration.',
-        'requirements': '• Experience with trading systems\n• Strong Python or C++\n• FIX protocol knowledge\n• FCA registration or eligibility',
-        'responsibilities': '• Maintain algo trading infrastructure\n• Implement new trading strategies\n• Ensure regulatory compliance',
-        'skills_required': ['Python', 'C++', 'FIX Protocol', 'Algorithmic Trading', 'Low Latency'],
-        'job_type': 'contract', 'experience_level': 'senior', 'work_mode': 'onsite',
-        'location': 'London, UK', 'salary_min': 700, 'salary_max': 950,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Payment Systems Engineer',
-        'description': 'Build the payment gateway and reconciliation systems processing millions of transactions. Ensure reliability, accuracy, and compliance with PSD2.',
-        'requirements': '• 3+ years backend engineering\n• Payment processing experience (Stripe, Adyen, or similar)\n• Strong testing discipline\n• PSD2 awareness',
-        'responsibilities': '• Build payment gateway integrations\n• Maintain reconciliation pipelines\n• Ensure PSD2 compliance',
-        'skills_required': ['Python', 'Stripe', 'PSD2', 'Payments', 'PostgreSQL', 'REST APIs'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 65000, 'salary_max': 82000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Junior Fintech Developer',
-        'description': 'Start your career in one of the most exciting areas of tech. You will work on real financial systems from day one, with structured mentoring and a learning budget.',
-        'requirements': '• CS or Mathematics degree\n• Some programming experience\n• Interest in finance and technology\n• Attention to detail',
-        'responsibilities': '• Contribute to feature development\n• Write and maintain tests\n• Learn financial domain knowledge',
-        'skills_required': ['Python', 'JavaScript', 'SQL', 'Git', 'Testing'],
-        'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid',
-        'location': 'London, UK', 'salary_min': 35000, 'salary_max': 45000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Finance Intern — Technology',
-        'description': '10-week summer internship in our technology division. Work on real fintech challenges alongside experienced engineers and quants.',
-        'requirements': '• Studying CS, Mathematics, Finance, or Engineering\n• Analytical mindset\n• Excel or Python skills\n• Interest in financial markets',
-        'responsibilities': '• Support technology projects\n• Analyse financial data\n• Present findings to senior stakeholders',
-        'skills_required': ['Python', 'Excel', 'Finance', 'Analysis'],
-        'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'onsite',
-        'location': 'London, UK', 'salary_min': 24000, 'salary_max': 28000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Freelance Compliance Consultant',
-        'description': 'Provide expertise on FCA regulations and compliance framework reviews. Flexible engagement, typically 2–4 weeks per project.',
-        'requirements': '• Deep FCA regulatory knowledge\n• Experience with compliance framework assessments\n• Strong written communication\n• FCA registered or previously registered',
-        'responsibilities': '• Review compliance frameworks\n• Produce regulatory gap analyses\n• Advise on FCA registration requirements',
-        'skills_required': ['FCA Regulation', 'Compliance', 'Financial Services', 'Risk Management', 'Reporting'],
-        'job_type': 'freelance', 'experience_level': 'senior', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 500, 'salary_max': 750,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-    {
-        'title': 'Financial Data Engineer (Part-time)',
-        'description': '3 days per week contract to build and maintain financial data pipelines for regulatory reporting. Flexible scheduling, remote first.',
-        'requirements': '• Data engineering experience\n• SQL and Python\n• Financial data (market data, risk data) experience\n• Snowflake or similar cloud warehouse',
-        'responsibilities': '• Build regulatory reporting pipelines\n• Maintain data quality checks\n• Document data lineage',
-        'skills_required': ['Python', 'SQL', 'Snowflake', 'Financial Data', 'Airflow', 'Data Quality'],
-        'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 50000, 'salary_max': 65000,
-        'category': 'Finance & Fintech', 'company_idx': 3,
-    },
-
-    # ══════════════════════════════════════════
-    # CREATIVEAGENCY (idx 4) — 8 jobs
-    # ══════════════════════════════════════════
-    {
-        'title': 'Senior UX Designer',
-        'description': 'Lead design on our biggest client accounts. From research and wireframes to high-fidelity Figma prototypes. You will mentor junior designers and set the quality bar.',
-        'requirements': '• 5+ years product/UX design\n• Strong Figma skills including component libraries\n• Experience running user research\n• Portfolio showing end-to-end process',
-        'responsibilities': '• Lead design for key client accounts\n• Run user research and usability testing\n• Mentor junior designers\n• Present to stakeholders',
-        'skills_required': ['Figma', 'UX Research', 'Prototyping', 'Design Systems', 'User Testing', 'Accessibility'],
-        'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid',
-        'location': 'Bristol, UK', 'salary_min': 60000, 'salary_max': 78000,
-        'category': 'Design & UX', 'company_idx': 4,
-    },
-    {
-        'title': 'Brand Designer',
-        'description': 'Shape the visual identities of startups and scale-ups across the UK. You will own brand projects from brief to delivery, working across logo, colour, typography, and brand guidelines.',
-        'requirements': '• Strong brand design portfolio\n• Figma and Adobe Creative Suite\n• Motion design basics a plus\n• Great client communication',
-        'responsibilities': '• Lead brand identity projects\n• Present concepts to clients\n• Produce brand guidelines\n• Support campaign design',
-        'skills_required': ['Brand Design', 'Figma', 'Adobe Illustrator', 'Adobe Photoshop', 'Typography', 'Motion'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Bristol, UK', 'salary_min': 42000, 'salary_max': 56000,
-        'category': 'Design & UX', 'company_idx': 4,
-    },
-    {
-        'title': 'Freelance Motion Designer',
-        'description': 'We regularly need freelance motion designers for social media content, explainer videos, and client brand campaigns. Project-based, fully remote.',
-        'requirements': '• Strong After Effects skills\n• Experience with social video formats (Reels, TikTok)\n• Portfolio of motion work\n• Quick turnaround ability',
-        'responsibilities': '• Create motion graphics for social and web\n• Animate brand assets\n• Deliver project files for handover',
-        'skills_required': ['After Effects', 'Motion Design', 'Premier Pro', 'Figma', 'Animation', 'Social Media'],
-        'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 300, 'salary_max': 500,
-        'category': 'Design & UX', 'company_idx': 4,
-    },
-    {
-        'title': 'Content Marketing Manager',
-        'description': 'Build and execute a content strategy that drives organic growth for CreativeAgency and our clients. Own the blog, social content, case studies, and email newsletter.',
-        'requirements': '• 3+ years content marketing experience\n• Strong writing skills\n• SEO knowledge\n• Experience managing a content calendar across multiple brands',
-        'responsibilities': '• Own content strategy and calendar\n• Write and commission blog posts and case studies\n• Manage social media presence\n• Report on content performance',
-        'skills_required': ['Content Marketing', 'SEO', 'Copywriting', 'Social Media', 'Analytics', 'HubSpot'],
-        'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid',
-        'location': 'Bristol, UK', 'salary_min': 38000, 'salary_max': 50000,
-        'category': 'Marketing', 'company_idx': 4,
-    },
-    {
-        'title': 'SEO Specialist (Part-time)',
-        'description': 'Manage SEO strategy for CreativeAgency and a portfolio of client websites. 2 days per week, flexible. Fully remote.',
-        'requirements': '• Proven SEO experience\n• Technical SEO knowledge\n• Ahrefs or SEMrush\n• Can work independently and report clearly',
-        'responsibilities': '• Conduct SEO audits\n• Build link acquisition strategies\n• Track rankings and organic traffic\n• Produce monthly reports',
-        'skills_required': ['SEO', 'Technical SEO', 'Ahrefs', 'Google Search Console', 'Content Strategy', 'Analytics'],
-        'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote (UK)', 'salary_min': 28000, 'salary_max': 36000,
-        'category': 'Marketing', 'company_idx': 4,
-    },
-    {
-        'title': 'Social Media Manager',
-        'description': 'Grow and manage social media presence for CreativeAgency and our clients across Instagram, LinkedIn, and TikTok. A creative and analytical role.',
-        'requirements': '• 1+ year managing brand social media\n• Video and photo content creation skills\n• Analytics and reporting experience\n• Copywriting ability',
-        'responsibilities': '• Create and schedule social content\n• Grow follower counts and engagement\n• Run paid social campaigns\n• Produce monthly analytics reports',
-        'skills_required': ['Social Media', 'Instagram', 'LinkedIn', 'TikTok', 'Canva', 'Analytics', 'Copywriting'],
-        'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid',
-        'location': 'Bristol, UK', 'salary_min': 26000, 'salary_max': 34000,
-        'category': 'Marketing', 'company_idx': 4,
-    },
-    {
-        'title': 'Freelance Copywriter',
-        'description': 'Write compelling copy for websites, campaigns, and brand launches. We work with exciting clients and need writers who can match brand voice with speed.',
-        'requirements': '• Strong copywriting portfolio\n• Experience writing across digital formats\n• Quick and responsive\n• Can take direction and iterate fast',
-        'responsibilities': '• Write website and landing page copy\n• Produce ad and campaign copy\n• Develop brand messaging frameworks',
-        'skills_required': ['Copywriting', 'Brand Voice', 'Digital Marketing', 'Editing', 'SEO Copywriting'],
-        'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote',
-        'location': 'Remote', 'salary_min': 250, 'salary_max': 450,
-        'category': 'Marketing', 'company_idx': 4,
-    },
-    {
-        'title': 'Creative Director',
-        'description': 'Lead the creative vision of CreativeAgency. You will inspire a team of designers and writers, win pitches, and ensure every piece of work is something to be proud of.',
-        'requirements': '• 10+ years creative industry experience\n• Proven track record leading creative teams\n• Strong presentation and client skills\n• Award-winning work preferred',
-        'responsibilities': '• Lead creative direction across all accounts\n• Win new business pitches\n• Mentor and inspire the creative team\n• Maintain quality standards',
-        'skills_required': ['Creative Direction', 'Brand Strategy', 'Leadership', 'Presentation', 'Design', 'Copywriting'],
-        'job_type': 'full_time', 'experience_level': 'executive', 'work_mode': 'onsite',
-        'location': 'Bristol, UK', 'salary_min': 90000, 'salary_max': 120000,
-        'category': 'Design & UX', 'company_idx': 4,
-    },
+    # ── TECHCORP (0) ─────────────────────────────────────────────────────────
+    {'title': 'Senior Full-Stack Developer', 'description': 'Lead feature development across our React frontend and Django REST backend for enterprise clients.', 'requirements': '4+ years full-stack · React/TypeScript · Python/Django · PostgreSQL', 'responsibilities': 'Design and implement features end-to-end · Review PRs · Mentor juniors', 'skills_required': ['React', 'TypeScript', 'Python', 'Django', 'PostgreSQL', 'Docker'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 70000, 'salary_max': 90000, 'category': 'Software Engineering', 'company_idx': 0},
+    {'title': 'React Frontend Engineer', 'description': 'Own the UI of our flagship SaaS product. React 18, TypeScript, Tailwind CSS, React Query.', 'requirements': '2+ years React · TypeScript · WCAG accessibility knowledge', 'responsibilities': 'Build component library · Implement responsive features · Optimise Core Web Vitals', 'skills_required': ['React', 'TypeScript', 'Tailwind CSS', 'JavaScript', 'CSS'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 55000, 'salary_max': 70000, 'category': 'Software Engineering', 'company_idx': 0},
+    {'title': 'Backend Python Developer', 'description': 'Build the Django REST API powering our platform. Own services, write tests, shape architecture.', 'requirements': '3+ years Python · Django REST Framework · PostgreSQL · Redis', 'responsibilities': 'Design REST APIs · Optimise queries · Write tests', 'skills_required': ['Python', 'Django', 'PostgreSQL', 'Redis', 'Celery', 'REST APIs'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 60000, 'salary_max': 75000, 'category': 'Software Engineering', 'company_idx': 0},
+    {'title': 'Junior Software Engineer (Graduate)', 'description': 'Kick-start your career with mentoring, pair programming, and real feature work from week one.', 'requirements': 'CS degree · Programming fundamentals · Python or JavaScript', 'responsibilities': 'Contribute features under mentorship · Write unit tests · Participate in code review', 'skills_required': ['Python', 'JavaScript', 'Git', 'REST APIs'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 32000, 'salary_max': 42000, 'category': 'Software Engineering', 'company_idx': 0},
+    {'title': 'DevOps / Platform Engineer', 'description': 'Own AWS cloud infrastructure. Build Kubernetes clusters, CI/CD pipelines, and observability tooling.', 'requirements': '3+ years DevOps · AWS EKS/RDS/S3 · Kubernetes · Terraform', 'responsibilities': 'Scale Kubernetes · Build CI/CD · Manage cloud costs', 'skills_required': ['AWS', 'Kubernetes', 'Terraform', 'Docker', 'CI/CD', 'Linux'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 75000, 'salary_max': 95000, 'category': 'DevOps & Infrastructure', 'company_idx': 0},
+    {'title': 'iOS Developer (Swift)', 'description': 'Build our native iOS app used by 200,000+ users. UI animations, push notifications, offline sync.', 'requirements': '2+ years iOS/Swift · SwiftUI · UIKit · MVVM', 'responsibilities': 'Ship iOS features · Write UI tests · Collaborate with backend', 'skills_required': ['Swift', 'SwiftUI', 'UIKit', 'iOS', 'Xcode', 'Core Data'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 60000, 'salary_max': 78000, 'category': 'Mobile Development', 'company_idx': 0},
+    {'title': 'Freelance React Developer', 'description': 'Short-term freelance (2–3 months) to build a client-facing dashboard. Fully remote, weekly billing.', 'requirements': 'Strong React/TypeScript · Chart.js or Recharts · Available 4+ days/week', 'responsibilities': 'Build dashboard components · Integrate REST API · Handover docs', 'skills_required': ['React', 'TypeScript', 'JavaScript', 'CSS', 'REST APIs'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 400, 'salary_max': 550, 'category': 'Software Engineering', 'company_idx': 0},
+    {'title': 'Principal Engineer', 'description': 'Shape technical strategy for our entire engineering org. Set standards, drive best practices, solve the hardest problems.', 'requirements': '10+ years engineering · Architecture experience · Influencing culture', 'responsibilities': 'Set engineering standards · Lead architecture reviews · Mentor staff engineers', 'skills_required': ['System Design', 'Architecture', 'Leadership', 'Python', 'Cloud', 'Mentoring'], 'job_type': 'full_time', 'experience_level': 'executive', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 120000, 'salary_max': 150000, 'category': 'Software Engineering', 'company_idx': 0},
+    {'title': 'Software Engineering Intern (Summer)', 'description': '12-week paid internship for penultimate-year students. Real features, senior mentor, end-of-programme showcase.', 'requirements': 'Studying CS · Some coding experience (any language) · Curious and communicative', 'responsibilities': 'Build a defined feature · Write tests · Present at intern showcase', 'skills_required': ['Python', 'JavaScript', 'Git'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 22000, 'salary_max': 26000, 'category': 'Software Engineering', 'company_idx': 0},
+    # ── DATAVENTURES (1) ─────────────────────────────────────────────────────
+    {'title': 'Data Scientist', 'description': 'Build ML models that predict customer behaviour, detect anomalies, and optimise pricing for enterprise clients.', 'requirements': 'MSc/PhD in Data Science or 3+ years · Python · SQL · NLP', 'responsibilities': 'Build ML models · Clean datasets · Present to clients', 'skills_required': ['Python', 'Machine Learning', 'scikit-learn', 'SQL', 'Pandas', 'NLP'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Manchester, UK', 'salary_min': 55000, 'salary_max': 72000, 'category': 'Data Science', 'company_idx': 1},
+    {'title': 'Machine Learning Engineer', 'description': 'Deploy models at scale, build feature pipelines, maintain ML infrastructure for enterprise clients.', 'requirements': '2+ years deploying ML in production · Python · MLflow · Docker/Kubernetes', 'responsibilities': 'Productionise models · Build pipelines · Monitor drift', 'skills_required': ['Python', 'Machine Learning', 'Docker', 'MLflow', 'scikit-learn', 'TensorFlow'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 65000, 'salary_max': 85000, 'category': 'Data Science', 'company_idx': 1},
+    {'title': 'NLP Research Engineer', 'description': 'Fine-tune LLMs, build information extraction pipelines, advance NLP capabilities for enterprise clients.', 'requirements': 'PhD or strong MSc in NLP · HuggingFace Transformers · PyTorch', 'responsibilities': 'Fine-tune language models · Build NLP pipelines · Publish research notes', 'skills_required': ['NLP', 'Python', 'PyTorch', 'HuggingFace', 'Transformers', 'Machine Learning'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'Manchester, UK', 'salary_min': 80000, 'salary_max': 105000, 'category': 'Data Science', 'company_idx': 1},
+    {'title': 'Data Science Intern (6 months)', 'description': 'Structured internship with a real project alongside senior data scientists.', 'requirements': 'Studying CS/Maths/Statistics · Python experience · Basic stats', 'responsibilities': 'Explore datasets · Build simple ML models · Present weekly', 'skills_required': ['Python', 'Statistics', 'Pandas', 'Machine Learning'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'Manchester, UK', 'salary_min': 22000, 'salary_max': 26000, 'category': 'Data Science', 'company_idx': 1},
+    {'title': 'Freelance Data Analyst', 'description': 'Flexible engagements 2 weeks–3 months. Client data analysis, insights reports, and presentations.', 'requirements': 'Strong SQL and Python or R · Data visualisation · Independent worker', 'responsibilities': 'Analyse client datasets · Produce insight reports · Present findings', 'skills_required': ['SQL', 'Python', 'Data Visualisation', 'Excel', 'Tableau'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 300, 'salary_max': 450, 'category': 'Data Science', 'company_idx': 1},
+    # ── HEALTHTECH UK (2) ────────────────────────────────────────────────────
+    {'title': 'Healthcare Software Engineer', 'description': 'Build NHS-integrated software improving patient outcomes. Clinical decision support, appointment systems, data pipelines.', 'requirements': '2+ years software engineering · HL7 FHIR a plus · GDPR awareness', 'responsibilities': 'Develop NHS features · Ensure GDPR compliance · Write clinical APIs', 'skills_required': ['Python', 'Django', 'HL7 FHIR', 'PostgreSQL', 'REST APIs', 'GDPR'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Birmingham, UK', 'salary_min': 52000, 'salary_max': 68000, 'category': 'Healthcare Technology', 'company_idx': 2},
+    {'title': 'Medical Imaging AI Engineer', 'description': 'Develop AI for X-ray, MRI, and pathology slide interpretation. Work with clinicians to validate outputs.', 'requirements': 'MSc/PhD in ML or Computer Vision · PyTorch · Medical imaging libraries', 'responsibilities': 'Train and validate imaging models · Collaborate with clinical partners · Write validation reports', 'skills_required': ['PyTorch', 'Computer Vision', 'Python', 'Medical Imaging', 'Deep Learning', 'CNN'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 75000, 'salary_max': 95000, 'category': 'Healthcare Technology', 'company_idx': 2},
+    {'title': 'Clinical Data Analyst', 'description': 'Analyse clinical datasets to improve patient care pathways. Work with NHS trusts and GPs.', 'requirements': 'Health informatics/statistics background · SQL and Python or R · NHS data experience preferred', 'responsibilities': 'Analyse clinical data · Produce insight reports · Identify care pathway improvements', 'skills_required': ['SQL', 'Python', 'R', 'Health Informatics', 'Data Visualisation', 'SNOMED CT'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Birmingham, UK', 'salary_min': 42000, 'salary_max': 55000, 'category': 'Healthcare Technology', 'company_idx': 2},
+    {'title': 'NHS Digital Consultant (Contract)', 'description': '6-month contract leading an NHS digital transformation programme. Stakeholder management, delivery oversight.', 'requirements': 'NHS digital project experience · Agile delivery · Stakeholder management · SC clearance eligible', 'responsibilities': 'Lead NHS digital workstreams · Manage stakeholders · Report to board sponsors', 'skills_required': ['NHS', 'Digital Transformation', 'Stakeholder Management', 'Agile', 'Project Management'], 'job_type': 'contract', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'Birmingham, UK', 'salary_min': 500, 'salary_max': 650, 'category': 'Healthcare Technology', 'company_idx': 2},
+    {'title': 'Digital Health Intern', 'description': '3-month internship for students interested in the intersection of technology and healthcare.', 'requirements': 'Studying healthcare, CS, or related · Interest in digital health · Basic coding', 'responsibilities': 'Support feature development · Research digital health trends · Present to team', 'skills_required': ['Python', 'Research', 'Healthcare', 'Communication'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'Birmingham, UK', 'salary_min': 20000, 'salary_max': 24000, 'category': 'Healthcare Technology', 'company_idx': 2},
+    # ── FINANCEHUB (3) ───────────────────────────────────────────────────────
+    {'title': 'Quantitative Developer', 'description': 'Build quantitative systems powering risk and pricing models alongside senior quants.', 'requirements': 'Strong Python/C++ · Financial mathematics · Low-latency systems a plus', 'responsibilities': 'Implement quant models · Optimise pricing performance · Write comprehensive tests', 'skills_required': ['Python', 'C++', 'NumPy', 'Finance', 'Risk Modelling', 'Low Latency'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 90000, 'salary_max': 130000, 'category': 'Finance & Fintech', 'company_idx': 3},
+    {'title': 'Payment Systems Engineer', 'description': 'Build payment gateway and reconciliation systems processing millions of transactions. PSD2 compliance required.', 'requirements': '3+ years backend · Payment processing (Stripe/Adyen) · PSD2 awareness', 'responsibilities': 'Build payment gateway integrations · Maintain reconciliation pipelines · Ensure PSD2 compliance', 'skills_required': ['Python', 'Stripe', 'PSD2', 'Payments', 'PostgreSQL', 'REST APIs'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 65000, 'salary_max': 82000, 'category': 'Finance & Fintech', 'company_idx': 3},
+    {'title': 'Blockchain Developer', 'description': 'Build on Ethereum and Solana for DeFi products and smart contract infrastructure.', 'requirements': 'Solidity · Web3.js/ethers.js · DeFi protocols knowledge · Audit mindset', 'responsibilities': 'Write and audit smart contracts · Build Web3 integrations · Stay current with DeFi', 'skills_required': ['Solidity', 'Ethereum', 'Web3.js', 'Blockchain', 'Smart Contracts', 'DeFi'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 85000, 'salary_max': 110000, 'category': 'Finance & Fintech', 'company_idx': 3},
+    {'title': 'Finance Intern — Technology', 'description': '10-week summer internship in our technology division. Real fintech challenges alongside engineers and quants.', 'requirements': 'Studying CS/Maths/Finance/Engineering · Analytical mindset · Excel or Python', 'responsibilities': 'Support technology projects · Analyse financial data · Present to stakeholders', 'skills_required': ['Python', 'Excel', 'Finance', 'Analysis'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 24000, 'salary_max': 28000, 'category': 'Finance & Fintech', 'company_idx': 3},
+    {'title': 'Freelance Compliance Consultant', 'description': 'FCA regulation expertise and compliance framework reviews. 2–4 week projects, flexible remote.', 'requirements': 'Deep FCA knowledge · Compliance assessment experience · Strong writing · FCA registered', 'responsibilities': 'Review compliance frameworks · Produce regulatory gap analyses · Advise on FCA requirements', 'skills_required': ['FCA Regulation', 'Compliance', 'Financial Services', 'Risk Management', 'Reporting'], 'job_type': 'freelance', 'experience_level': 'senior', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 500, 'salary_max': 750, 'category': 'Finance & Fintech', 'company_idx': 3},
+    # ── CREATIVE AGENCY (4) ──────────────────────────────────────────────────
+    {'title': 'Senior UX Designer', 'description': 'Lead design on biggest client accounts. From research and wireframes to high-fidelity Figma prototypes.', 'requirements': '5+ years UX design · Figma component libraries · User research · Accessibility', 'responsibilities': 'Lead design for key accounts · Run usability testing · Mentor junior designers', 'skills_required': ['Figma', 'UX Research', 'Prototyping', 'Design Systems', 'User Testing', 'Accessibility'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'Bristol, UK', 'salary_min': 60000, 'salary_max': 78000, 'category': 'Design & UX', 'company_idx': 4},
+    {'title': 'Brand Designer', 'description': 'Shape visual identities of startups and scale-ups. Logo, colour, typography, brand guidelines.', 'requirements': 'Strong brand portfolio · Figma and Adobe Creative Suite · Client communication', 'responsibilities': 'Lead brand identity projects · Present to clients · Produce brand guidelines', 'skills_required': ['Brand Design', 'Figma', 'Adobe Illustrator', 'Adobe Photoshop', 'Typography', 'Motion'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Bristol, UK', 'salary_min': 42000, 'salary_max': 56000, 'category': 'Design & UX', 'company_idx': 4},
+    {'title': 'Freelance Motion Designer', 'description': 'Social media content, explainer videos, brand campaigns. Project-based, fully remote.', 'requirements': 'Strong After Effects · Social video formats · Portfolio of motion work · Fast turnaround', 'responsibilities': 'Create motion graphics · Animate brand assets · Deliver project files', 'skills_required': ['After Effects', 'Motion Design', 'Premier Pro', 'Figma', 'Animation', 'Social Media'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 300, 'salary_max': 500, 'category': 'Design & UX', 'company_idx': 4},
+    {'title': 'Content Marketing Manager', 'description': 'Build and execute content strategy driving organic growth. Own blog, social, case studies, newsletter.', 'requirements': '3+ years content marketing · Strong writing · SEO · Content calendar management', 'responsibilities': 'Own content strategy · Write blog posts and case studies · Manage social presence', 'skills_required': ['Content Marketing', 'SEO', 'Copywriting', 'Social Media', 'Analytics', 'HubSpot'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Bristol, UK', 'salary_min': 38000, 'salary_max': 50000, 'category': 'Marketing', 'company_idx': 4},
+    {'title': 'Creative Director', 'description': 'Lead creative vision of CreativeAgency. Inspire designers and writers, win pitches, ensure outstanding work.', 'requirements': '10+ years creative industry · Leading creative teams · Strong client and presentation skills', 'responsibilities': 'Lead creative direction · Win pitches · Mentor creative team', 'skills_required': ['Creative Direction', 'Brand Strategy', 'Leadership', 'Presentation', 'Design', 'Copywriting'], 'job_type': 'full_time', 'experience_level': 'executive', 'work_mode': 'onsite', 'location': 'Bristol, UK', 'salary_min': 90000, 'salary_max': 120000, 'category': 'Design & UX', 'company_idx': 4},
+    # ── LEARNPATH (5) ────────────────────────────────────────────────────────
+    {'title': 'Senior Software Engineer (EdTech)', 'description': 'Build core learning platform used by 500,000 students. Adaptive learning, video streaming, real-time collaboration.', 'requirements': '4+ years software engineering · Python or Node.js · Video/streaming tech · PostgreSQL', 'responsibilities': 'Lead platform feature development · Optimise video delivery · Mentor engineers', 'skills_required': ['Python', 'Node.js', 'React', 'PostgreSQL', 'Redis', 'AWS'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 72000, 'salary_max': 92000, 'category': 'Software Engineering', 'company_idx': 5},
+    {'title': 'AI / ML Engineer — Personalised Learning', 'description': 'Build AI engine personalising each student learning path using RL, knowledge graphs, and NLP.', 'requirements': 'Strong ML background · Recommendation systems · Python and PyTorch', 'responsibilities': 'Build adaptive learning algorithm · Analyse student performance · A/B test recommendations', 'skills_required': ['Python', 'Machine Learning', 'Recommendation Systems', 'NLP', 'PyTorch', 'Knowledge Graphs'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 78000, 'salary_max': 98000, 'category': 'Data Science', 'company_idx': 5},
+    {'title': 'Learning Experience Designer', 'description': 'Design evidence-based online courses and assessments with subject matter experts.', 'requirements': 'Instructional design experience · E-learning tools (Articulate, H5P) · Learning science', 'responsibilities': 'Design course structures · Collaborate with subject experts · Evaluate learning outcomes', 'skills_required': ['Instructional Design', 'E-learning', 'H5P', 'Curriculum Design', 'Assessment'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Cambridge, UK', 'salary_min': 38000, 'salary_max': 50000, 'category': 'Education Technology', 'company_idx': 5},
+    {'title': 'Freelance Curriculum Developer (Mathematics)', 'description': 'Create A-Level and university Maths content. Flexible, paid per module, fully remote.', 'requirements': 'Maths degree · Teaching or curriculum development · LaTeX knowledge', 'responsibilities': 'Write course content and exercises · Create assessment materials · Review peer content', 'skills_required': ['Mathematics', 'Curriculum Development', 'LaTeX', 'Education', 'Content Writing'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 200, 'salary_max': 400, 'category': 'Education Technology', 'company_idx': 5},
+    {'title': 'EdTech Intern — Software Engineering', 'description': 'Summer internship for CS students building things students use every day.', 'requirements': 'Studying CS or Software Engineering · Some programming experience · Interest in education', 'responsibilities': 'Build a defined feature · Write tests · Demo your work at the end', 'skills_required': ['Python', 'JavaScript', 'Git', 'React'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'Cambridge, UK', 'salary_min': 21000, 'salary_max': 25000, 'category': 'Software Engineering', 'company_idx': 5},
+    # ── PIXELFORGE (6) ───────────────────────────────────────────────────────
+    {'title': 'Unity Game Developer', 'description': 'Build gameplay systems for mobile and PC titles in a small, fast-moving studio.', 'requirements': '2+ years Unity development · C# · Shipped a commercial game · Mobile performance', 'responsibilities': 'Implement core gameplay · Optimise for iOS/Android · Collaborate with artists', 'skills_required': ['Unity', 'C#', 'Mobile', 'Game Development', 'Performance Optimisation', 'iOS', 'Android'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'Guildford, UK', 'salary_min': 48000, 'salary_max': 65000, 'category': 'Gaming', 'company_idx': 6},
+    {'title': 'Senior Game Designer', 'description': 'Own design of upcoming PC title. Systems, progression loops, and level designs for hundreds of hours of play.', 'requirements': '4+ years game design · Shipped game in portfolio · Systems design · Player psychology', 'responsibilities': 'Write game design documents · Design and balance progression · Playtest and iterate', 'skills_required': ['Game Design', 'Systems Design', 'Level Design', 'GDD', 'Unity', 'Player Psychology'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'onsite', 'location': 'Guildford, UK', 'salary_min': 58000, 'salary_max': 76000, 'category': 'Gaming', 'company_idx': 6},
+    {'title': 'Freelance Concept Artist', 'description': 'Character, environment, and UI concepts for upcoming title. Project-based, remote-friendly.', 'requirements': 'Strong concept art portfolio (games preferred) · Photoshop or Procreate · Fast iteration', 'responsibilities': 'Create character and environment concepts · Iterate on feedback · Produce style guide assets', 'skills_required': ['Concept Art', 'Photoshop', 'Procreate', 'Character Design', 'Environment Art'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 350, 'salary_max': 550, 'category': 'Gaming', 'company_idx': 6},
+    {'title': 'Community Manager (Games)', 'description': 'Build and nurture player community across Discord, Reddit, Twitter/X, and Steam.', 'requirements': 'Community management experience · Deep games passion · Strong writing · Discord communities', 'responsibilities': 'Manage Discord and social · Run community events · Relay player feedback', 'skills_required': ['Community Management', 'Discord', 'Social Media', 'Gaming', 'Copywriting', 'Player Relations'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 32000, 'salary_max': 44000, 'category': 'Marketing', 'company_idx': 6},
+    # ── ECOSYSTEMS (7) ───────────────────────────────────────────────────────
+    {'title': 'Software Engineer — Energy Grid', 'description': 'Build software managing renewable energy distribution across the UK grid. Real-time data, optimisation algorithms.', 'requirements': 'Software engineering background · Python or Java · Real-time/IoT systems a plus', 'responsibilities': 'Build grid management APIs · Process energy telemetry · Integrate with grid operators', 'skills_required': ['Python', 'Java', 'Real-time Systems', 'IoT', 'PostgreSQL', 'REST APIs'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Edinburgh, UK', 'salary_min': 55000, 'salary_max': 72000, 'category': 'Software Engineering', 'company_idx': 7},
+    {'title': 'Sustainability Analyst', 'description': 'Produce carbon reporting and ESG analytics for corporate clients. Help companies measure and reduce carbon footprint.', 'requirements': 'Environmental science/engineering/data background · GHG Protocol · SQL and Python', 'responsibilities': 'Produce carbon emissions reports · Advise on decarbonisation · Build ESG dashboards', 'skills_required': ['Carbon Accounting', 'ESG', 'GHG Protocol', 'Python', 'Data Analysis', 'Excel'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Edinburgh, UK', 'salary_min': 42000, 'salary_max': 56000, 'category': 'Sustainability', 'company_idx': 7},
+    {'title': 'Renewable Energy Graduate Scheme', 'description': '2-year rotational scheme covering software engineering, data science, and sustainability consulting.', 'requirements': 'STEM degree · Genuine passion for climate · Some coding experience · Adaptable', 'responsibilities': 'Rotate across software, data, and consulting · Contribute to live projects · Present to leadership', 'skills_required': ['Python', 'Data Analysis', 'Sustainability', 'Communication', 'Adaptability'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'Edinburgh, UK', 'salary_min': 30000, 'salary_max': 36000, 'category': 'Sustainability', 'company_idx': 7},
+    {'title': 'Carbon Software Analyst (Part-time)', 'description': 'Support corporate clients using our carbon management platform. 3 days per week.', 'requirements': 'Environmental or data background · Carbon accounting knowledge · Excel · Good communication', 'responsibilities': 'Help clients set up carbon tracking · Produce monthly reports · Train users', 'skills_required': ['Carbon Accounting', 'Excel', 'Sustainability', 'Client Support', 'Data Entry'], 'job_type': 'part_time', 'experience_level': 'entry', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 24000, 'salary_max': 32000, 'category': 'Sustainability', 'company_idx': 7},
+    # ── SHOPNOW RETAIL (8) ───────────────────────────────────────────────────
+    {'title': 'E-commerce Trading Manager', 'description': 'Drive online sales performance across our 200+ product categories. Own trading calendar, promotional campaigns, and pricing strategy for our e-commerce platform.', 'requirements': '3+ years e-commerce trading · Strong analytical skills · Excel and Google Analytics · Retail background', 'responsibilities': 'Own trading calendar and promotions · Analyse conversion and basket data · Collaborate with buying and marketing', 'skills_required': ['E-commerce', 'Trading', 'Google Analytics', 'Excel', 'Retail', 'CMS Management'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Leeds, UK', 'salary_min': 40000, 'salary_max': 54000, 'category': 'Retail & E-commerce', 'company_idx': 8},
+    {'title': 'Retail Store Manager', 'description': 'Lead a high-performing store team of 25 in our flagship Leeds location. Own all aspects of store operations, sales, and colleague development.', 'requirements': '3+ years retail management · Experience leading teams · P&L awareness · Customer-first mindset', 'responsibilities': 'Lead and develop store team · Drive sales targets · Manage stock and operations', 'skills_required': ['Retail Management', 'Team Leadership', 'P&L', 'Customer Service', 'Stock Management'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'Leeds, UK', 'salary_min': 32000, 'salary_max': 42000, 'category': 'Retail & E-commerce', 'company_idx': 8},
+    {'title': 'Supply Chain Analyst', 'description': 'Optimise our supply chain and logistics network across 200 stores. Demand forecasting, supplier management, inventory planning.', 'requirements': '2+ years supply chain or logistics · SQL and Excel · Demand forecasting experience · FMCG or retail background', 'responsibilities': 'Analyse supply chain performance · Run demand forecasts · Work with suppliers on lead times', 'skills_required': ['Supply Chain', 'Demand Forecasting', 'SQL', 'Excel', 'Logistics', 'ERP Systems'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Leeds, UK', 'salary_min': 35000, 'salary_max': 46000, 'category': 'Retail & E-commerce', 'company_idx': 8},
+    {'title': 'Digital Marketing Executive', 'description': 'Execute digital marketing campaigns across paid social, SEO, and email to drive online and in-store traffic.', 'requirements': '1+ year digital marketing · Social ads (Meta, Google) · Email marketing platforms · Basic analytics', 'responsibilities': 'Run paid social and search campaigns · Manage email newsletters · Report on campaign performance', 'skills_required': ['Digital Marketing', 'Facebook Ads', 'Google Ads', 'Email Marketing', 'Analytics', 'SEO'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'Leeds, UK', 'salary_min': 26000, 'salary_max': 34000, 'category': 'Marketing', 'company_idx': 8},
+    {'title': 'Part-time Sales Assistant', 'description': 'Deliver exceptional customer service on the shop floor. Weekend and evening availability required.', 'requirements': 'Customer service experience · Friendly and reliable · Weekend availability · Team player', 'responsibilities': 'Assist customers · Process transactions · Maintain shop floor presentation', 'skills_required': ['Customer Service', 'Retail', 'Cash Handling', 'Communication', 'Teamwork'], 'job_type': 'part_time', 'experience_level': 'entry', 'work_mode': 'onsite', 'location': 'Leeds, UK', 'salary_min': 22000, 'salary_max': 26000, 'category': 'Retail & E-commerce', 'company_idx': 8},
+    {'title': 'Freelance Visual Merchandiser', 'description': 'Seasonal freelance to create compelling in-store displays and window installations for new collections.', 'requirements': 'Visual merchandising portfolio · Creative eye · Ability to work quickly and independently · Driving licence preferred', 'responsibilities': 'Design and build window displays · Create in-store installations · Brief and guide store teams', 'skills_required': ['Visual Merchandising', 'Retail Display', 'Creative Design', 'Store Layout', 'Brand Guidelines'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'Various UK Stores', 'salary_min': 180, 'salary_max': 280, 'category': 'Retail & E-commerce', 'company_idx': 8},
+    {'title': 'Retail Tech Developer (Shopify)', 'description': 'Build and maintain our Shopify Plus e-commerce platform and internal retail technology integrations.', 'requirements': '2+ years Shopify development · Liquid templating · JavaScript · API integrations · Retail domain knowledge', 'responsibilities': 'Develop custom Shopify themes and apps · Integrate with POS and ERP · Maintain performance', 'skills_required': ['Shopify', 'Liquid', 'JavaScript', 'React', 'REST APIs', 'E-commerce', 'Node.js'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Leeds, UK', 'salary_min': 45000, 'salary_max': 60000, 'category': 'Software Engineering', 'company_idx': 8},
+    # ── GRAND HOTELS GROUP (9) ───────────────────────────────────────────────
+    {'title': 'Hotel General Manager', 'description': 'Lead the full operation of our flagship 150-room London property. Own P&L, guest experience, and team development.', 'requirements': '5+ years hotel management · Luxury hotel experience · Revenue management · Strong leadership', 'responsibilities': 'Lead hotel operations · Drive guest satisfaction scores · Own financial performance · Develop team', 'skills_required': ['Hotel Management', 'Revenue Management', 'P&L', 'Guest Experience', 'Team Leadership', 'Luxury Hospitality'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 70000, 'salary_max': 90000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    {'title': 'Head Chef', 'description': 'Lead our brigade of 12 in our award-winning restaurant. Create seasonal menus, maintain quality standards, develop kitchen team.', 'requirements': '5+ years chef experience with 2+ years as head chef · Michelin or AA rosette background preferred · Menu development · Team leadership', 'responsibilities': 'Create seasonal menus · Lead and develop kitchen brigade · Manage food costs · Maintain hygiene standards', 'skills_required': ['Menu Development', 'Team Leadership', 'Food Cost Management', 'Fine Dining', 'HACCP', 'Culinary Arts'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 55000, 'salary_max': 70000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    {'title': 'Revenue Manager', 'description': 'Maximise RevPAR across our 15 properties through pricing, distribution strategy, and demand forecasting.', 'requirements': '2+ years revenue management · Opera or equivalent PMS · OTA strategy · Strong analytical skills', 'responsibilities': 'Set pricing strategy · Manage OTA distribution · Forecast demand · Report to GM', 'skills_required': ['Revenue Management', 'Opera PMS', 'OTA Management', 'Pricing Strategy', 'Excel', 'Forecasting'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 42000, 'salary_max': 56000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    {'title': 'Front of House Supervisor', 'description': 'Supervise the guest-facing team at our Edinburgh property. Ensure every guest interaction reflects our luxury brand standards.', 'requirements': '2+ years hotel front of house · Supervisory experience · Exceptional guest service · OPERA knowledge', 'responsibilities': 'Supervise reception team · Handle guest feedback · Train new team members · Support duty manager', 'skills_required': ['Front of House', 'Guest Service', 'Opera PMS', 'Supervision', 'Complaint Handling', 'Upselling'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'Edinburgh, UK', 'salary_min': 28000, 'salary_max': 36000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    {'title': 'Events Coordinator (Part-time)', 'description': 'Coordinate private dining, weddings, and corporate events at our Manchester property. 3 days per week.', 'requirements': '1+ year events coordination · Organised and detail-oriented · Client-facing experience · Flexible on weekends', 'responsibilities': 'Coordinate event logistics · Liaise with clients and suppliers · Support events on the day', 'skills_required': ['Event Planning', 'Client Liaison', 'Events Coordination', 'Communication', 'Organisation', 'Hospitality'], 'job_type': 'part_time', 'experience_level': 'entry', 'work_mode': 'onsite', 'location': 'Manchester, UK', 'salary_min': 23000, 'salary_max': 29000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    {'title': 'Hospitality Intern (Summer)', 'description': '10-week paid internship rotating across front desk, food and beverage, and events departments.', 'requirements': 'Studying hospitality, tourism, or business · Friendly and professional · Willing to work shifts · Passion for hospitality', 'responsibilities': 'Rotate across hotel departments · Assist with guest service · Support events delivery', 'skills_required': ['Customer Service', 'Communication', 'Teamwork', 'Hospitality', 'Adaptability'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 20000, 'salary_max': 23000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    {'title': 'Freelance Wedding Photographer', 'description': 'Document weddings and events at our hotel venues. We work with a roster of photographers for bookings throughout the year.', 'requirements': 'Professional photography portfolio · Wedding and events experience · Own professional equipment · Editing skills (Lightroom/Capture One)', 'responsibilities': 'Photograph wedding ceremonies and receptions · Deliver edited galleries on time · Coordinate with couples and hotel team', 'skills_required': ['Photography', 'Wedding Photography', 'Lightroom', 'Capture One', 'Editing', 'Client Communication'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'Various UK Hotels', 'salary_min': 800, 'salary_max': 2000, 'category': 'Hospitality & Tourism', 'company_idx': 9},
+    # ── LAWBRIDGE LLP (10) ───────────────────────────────────────────────────
+    {'title': 'Commercial Solicitor (3–5 PQE)', 'description': 'Join our leading commercial team advising clients on M&A, joint ventures, and commercial contracts. Excellent career progression to partnership.', 'requirements': '3–5 years PQE in commercial law · Corporate/M&A experience · Strong drafting skills · Business development interest', 'responsibilities': 'Advise on commercial contracts and transactions · Draft and negotiate agreements · Support senior partners on complex deals', 'skills_required': ['Commercial Law', 'Contract Drafting', 'M&A', 'Corporate Law', 'Negotiation', 'Client Management'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 80000, 'salary_max': 110000, 'category': 'Legal Services', 'company_idx': 10},
+    {'title': 'Employment Law Associate', 'description': 'Advise employer and employee clients on a full range of employment law matters from contracts to tribunal claims.', 'requirements': '2+ years PQE in employment law · Tribunal advocacy experience · Strong client skills', 'responsibilities': 'Advise on employment contracts and disputes · Represent clients at tribunal · Draft settlement agreements', 'skills_required': ['Employment Law', 'Tribunal Advocacy', 'Contract Drafting', 'HR Advisory', 'Legal Research'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Manchester, UK', 'salary_min': 65000, 'salary_max': 85000, 'category': 'Legal Services', 'company_idx': 10},
+    {'title': 'Legal Secretary (Part-time)', 'description': 'Support our corporate department with document management, client correspondence, and diary management. 3 days per week.', 'requirements': 'Legal secretarial experience · Excellent typing and attention to detail · MS Office · Professional communication', 'responsibilities': 'Prepare and format legal documents · Manage partner diaries · Handle client correspondence', 'skills_required': ['Legal Secretary', 'Document Management', 'MS Office', 'Attention to Detail', 'Client Communication'], 'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 25000, 'salary_max': 33000, 'category': 'Legal Services', 'company_idx': 10},
+    {'title': 'Trainee Solicitor (2-Year Contract)', 'description': 'Structured 2-year training contract rotating through corporate, litigation, employment, and real estate departments.', 'requirements': 'LPC completed or SQE passed · Strong academics (2:1 minimum) · Commercial awareness · Resilient and proactive', 'responsibilities': 'Rotate through practice areas · Assist on live client matters · Develop legal skills under supervision', 'skills_required': ['Legal Research', 'Drafting', 'Client Service', 'Commercial Awareness', 'Problem Solving'], 'job_type': 'contract', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 45000, 'salary_max': 55000, 'category': 'Legal Services', 'company_idx': 10},
+    {'title': 'Freelance Legal Translator (French/English)', 'description': 'Translate legal documents, contracts, and correspondence between French and English. Project-based, remote.', 'requirements': 'Native-level French and English · Legal translation experience · Attention to legal terminology · Confidentiality standards', 'responsibilities': 'Translate contracts and legal documents · Proofread translations · Meet deadlines for client transactions', 'skills_required': ['Legal Translation', 'French', 'English', 'Contract Law', 'Attention to Detail'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 60, 'salary_max': 120, 'category': 'Legal Services', 'company_idx': 10},
+    # ── DESIGNSPACE ARCHITECTS (11) ─────────────────────────────────────────
+    {'title': 'Architect (Part II / ARB Registered)', 'description': 'Work on award-winning residential and commercial projects from concept through planning to construction.', 'requirements': 'ARB registered or Part II qualified · Portfolio of built projects · Revit/AutoCAD/Rhino · Sustainable design knowledge', 'responsibilities': 'Lead project design from concept to delivery · Produce planning applications · Collaborate with engineers and contractors', 'skills_required': ['Architecture', 'Revit', 'AutoCAD', 'Rhino', 'Sustainable Design', 'Planning Applications', 'BIM'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 40000, 'salary_max': 56000, 'category': 'Architecture & Construction', 'company_idx': 11},
+    {'title': 'BIM Manager', 'description': 'Lead Building Information Modelling strategy across all DesignSpace projects. Set standards, train team, manage model quality.', 'requirements': '4+ years BIM management · Revit expert · BIM360 or Autodesk Construction Cloud · ISO 19650 knowledge', 'responsibilities': 'Set BIM standards and workflows · Manage model quality and coordination · Train project teams · Liaise with contractors', 'skills_required': ['BIM Management', 'Revit', 'Navisworks', 'BIM360', 'ISO 19650', 'AutoCAD', 'Coordination'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 58000, 'salary_max': 72000, 'category': 'Architecture & Construction', 'company_idx': 11},
+    {'title': 'Architectural Visualiser', 'description': 'Create compelling CGI renders, animations, and interactive visualisations for client presentations and planning applications.', 'requirements': '2+ years architectural visualisation · 3ds Max, Lumion, or Enscape · Photoshop for post-production · Architectural context understanding', 'responsibilities': 'Produce photorealistic renders · Create walkthrough animations · Support planning and client presentations', 'skills_required': ['Architectural Visualisation', '3ds Max', 'Lumion', 'Enscape', 'Photoshop', 'CGI', 'V-Ray'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 36000, 'salary_max': 48000, 'category': 'Architecture & Construction', 'company_idx': 11},
+    {'title': 'Freelance Planning Consultant', 'description': 'Advise on planning applications and appeals for residential and commercial development projects. Project-based engagement.', 'requirements': 'MRTPI qualified or pursuing · Planning application experience · Appeals experience a plus · Strong report writing', 'responsibilities': 'Prepare and submit planning applications · Write planning statements · Support planning appeals', 'skills_required': ['Town Planning', 'Planning Applications', 'MRTPI', 'Report Writing', 'Development Management'], 'job_type': 'freelance', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 500, 'salary_max': 700, 'category': 'Architecture & Construction', 'company_idx': 11},
+    {'title': 'Architecture Part I Assistant', 'description': 'First professional experience for a Part I architecture graduate. Work on live projects in a supportive studio environment.', 'requirements': 'Part I architecture qualification · Revit or AutoCAD · Portfolio demonstrating design ability · Enthusiastic and eager to learn', 'responsibilities': 'Support design team on live projects · Produce drawings and models · Assist with client presentations', 'skills_required': ['Architecture', 'Revit', 'AutoCAD', 'SketchUp', 'Photoshop', 'InDesign', 'Design'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 26000, 'salary_max': 33000, 'category': 'Architecture & Construction', 'company_idx': 11},
+    # ── NORTHSTAR MEDIA (12) ─────────────────────────────────────────────────
+    {'title': 'Investigative Journalist', 'description': 'Lead long-form investigative journalism projects on politics, corporate accountability, and social issues.', 'requirements': '3+ years investigative journalism · NCTJ or equivalent qualification · Experience with FOI requests · Strong source development', 'responsibilities': 'Lead investigative projects · Conduct research and interviews · Write long-form articles · Collaborate with editors', 'skills_required': ['Investigative Journalism', 'FOI Requests', 'Interviewing', 'Long-form Writing', 'Research', 'NCTJ'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'Glasgow, UK', 'salary_min': 36000, 'salary_max': 48000, 'category': 'Media & Journalism', 'company_idx': 12},
+    {'title': 'Documentary Producer', 'description': 'Develop and produce documentary content for streaming platforms and broadcast. Own projects from pitch to delivery.', 'requirements': '4+ years documentary production · Shooting and directing experience · Knowledge of commissioning landscape · Strong storytelling', 'responsibilities': 'Develop documentary ideas · Pitch to commissioners · Manage production budgets · Oversee post-production', 'skills_required': ['Documentary Production', 'Directing', 'Pitching', 'Budget Management', 'Storytelling', 'Commissioning'], 'job_type': 'full_time', 'experience_level': 'senior', 'work_mode': 'hybrid', 'location': 'Glasgow, UK', 'salary_min': 48000, 'salary_max': 65000, 'category': 'Media & Journalism', 'company_idx': 12},
+    {'title': 'Podcast Producer', 'description': 'Produce, edit, and grow our award-winning investigative podcast. Own the editorial calendar and guest bookings.', 'requirements': '2+ years podcast production · Audio editing (Audition or Logic) · Strong editorial judgement · Social media growth', 'responsibilities': 'Produce and edit weekly episodes · Book and brief guests · Grow audience across platforms', 'skills_required': ['Podcast Production', 'Audio Editing', 'Adobe Audition', 'Editorial Judgement', 'Guest Booking', 'Social Growth'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 34000, 'salary_max': 44000, 'category': 'Media & Journalism', 'company_idx': 12},
+    {'title': 'Freelance Videographer', 'description': 'Shoot documentary-style footage for our news and investigative content. Project-based, UK-based required.', 'requirements': 'Videography portfolio · Documentary shooting style · Sony FS7 or similar · Self-shooting experience', 'responsibilities': 'Shoot interviews and observational footage · Operate independently · Deliver to broadcast spec', 'skills_required': ['Videography', 'Documentary', 'Sony FS7', 'Self-shooting', 'Lighting', 'Location Sound'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'Various UK Locations', 'salary_min': 350, 'salary_max': 600, 'category': 'Media & Journalism', 'company_idx': 12},
+    {'title': 'Junior Reporter (Trainee)', 'description': 'Your first newsroom role. Learn investigative journalism from experienced reporters and start building your own stories.', 'requirements': 'Journalism degree or NCTJ · Strong writing · Digital-first mindset · Relentless curiosity', 'responsibilities': 'Research and write news stories · Assist senior journalists · Build source networks · Write for web and social', 'skills_required': ['News Writing', 'Research', 'Digital Journalism', 'Social Media', 'NCTJ', 'Interviewing'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'Glasgow, UK', 'salary_min': 24000, 'salary_max': 30000, 'category': 'Media & Journalism', 'company_idx': 12},
+    {'title': 'Data Journalist (Part-time)', 'description': 'Turn complex data into compelling stories. 2–3 days per week, flexible for someone balancing freelance work.', 'requirements': 'Journalism background with data skills · Python or R · Data visualisation (Flourish, Datawrapper) · Ability to explain complex data simply', 'responsibilities': 'Analyse public datasets · Create data visualisations · Write data-driven stories · Fact-check statistical claims', 'skills_required': ['Data Journalism', 'Python', 'R', 'Flourish', 'Datawrapper', 'Statistical Analysis', 'Storytelling'], 'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote (UK)', 'salary_min': 28000, 'salary_max': 38000, 'category': 'Media & Journalism', 'company_idx': 12},
+    # ── HOPE FOUNDATION (13) ────────────────────────────────────────────────
+    {'title': 'Youth Mental Health Practitioner', 'description': 'Provide therapeutic support to young people aged 11–25 experiencing anxiety, depression, and trauma. Deliver both one-to-one and group programmes.', 'requirements': 'Qualified counsellor or therapist (BACP or UKCP registered) · Experience working with young people · Knowledge of safeguarding · Genuine passion for mental health', 'responsibilities': 'Deliver therapeutic interventions · Maintain case notes and clinical records · Participate in clinical supervision · Contribute to service development', 'skills_required': ['Counselling', 'CBT', 'Youth Work', 'Safeguarding', 'BACP', 'Mental Health', 'Case Management'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 32000, 'salary_max': 42000, 'category': 'Charity & Non-profit', 'company_idx': 13},
+    {'title': 'Fundraising Manager', 'description': 'Lead individual giving, corporate partnerships, and grant fundraising. Own and grow a £500k income stream.', 'requirements': '3+ years charity fundraising · Individual giving and major donor experience · Bid writing skills · CRM (Salesforce or Raiser\'s Edge)', 'responsibilities': 'Manage individual giving programme · Cultivate major donors · Write grant applications · Report to Director of Fundraising', 'skills_required': ['Fundraising', 'Major Donor', 'Grant Writing', 'Salesforce', 'Individual Giving', 'Corporate Partnerships'], 'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 38000, 'salary_max': 50000, 'category': 'Charity & Non-profit', 'company_idx': 13},
+    {'title': 'Community Outreach Coordinator', 'description': 'Build relationships with schools, community organisations, and local authorities to reach young people who need our services.', 'requirements': '2+ years community work or youth work · Strong relationship-building skills · Knowledge of youth mental health · Full driving licence', 'responsibilities': 'Build referral partnerships · Deliver awareness sessions in schools · Represent Hope Foundation at community events', 'skills_required': ['Community Outreach', 'Youth Work', 'Partnership Building', 'Presentation', 'Mental Health Awareness'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 27000, 'salary_max': 34000, 'category': 'Charity & Non-profit', 'company_idx': 13},
+    {'title': 'Volunteer Coordinator (Part-time)', 'description': 'Recruit, train, and support 150+ volunteers who deliver our community mental health programmes. 3 days per week.', 'requirements': 'Volunteer management experience · Organised and supportive · Safeguarding knowledge · DBS required', 'responsibilities': 'Recruit and onboard volunteers · Deliver volunteer training · Provide ongoing support · Recognise and retain volunteers', 'skills_required': ['Volunteer Management', 'Recruitment', 'Training', 'Safeguarding', 'Organisation', 'Communication'], 'job_type': 'part_time', 'experience_level': 'mid', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 24000, 'salary_max': 30000, 'category': 'Charity & Non-profit', 'company_idx': 13},
+    {'title': 'Digital Communications Officer', 'description': 'Grow our digital presence to reach more young people and supporters. Own social media, email, and website content.', 'requirements': '2+ years digital communications · Social media management · Email marketing · Website CMS (WordPress) · Charity or public sector experience a plus', 'responsibilities': 'Manage social media channels · Write email newsletters · Update website content · Track and report engagement metrics', 'skills_required': ['Social Media', 'Email Marketing', 'WordPress', 'Copywriting', 'Analytics', 'Digital Communications'], 'job_type': 'full_time', 'experience_level': 'entry', 'work_mode': 'hybrid', 'location': 'London, UK', 'salary_min': 26000, 'salary_max': 34000, 'category': 'Charity & Non-profit', 'company_idx': 13},
+    {'title': 'Freelance Grant Writer', 'description': 'Research and write grant applications to trusts, foundations, and statutory funders. Project-based, remote.', 'requirements': 'Proven grant writing track record · Charity sector experience · Excellent research and writing skills · Can work to tight deadlines', 'responsibilities': 'Research funding opportunities · Write compelling grant applications · Report on successful grants · Support bid reviews', 'skills_required': ['Grant Writing', 'Bid Writing', 'Charity Fundraising', 'Research', 'Copywriting', 'Trust Fundraising'], 'job_type': 'freelance', 'experience_level': 'mid', 'work_mode': 'remote', 'location': 'Remote', 'salary_min': 250, 'salary_max': 450, 'category': 'Charity & Non-profit', 'company_idx': 13},
+    {'title': 'Therapy Intern (Post-Graduate Placement)', 'description': 'Accredited post-graduate placement for trainee therapists. Supervised caseload, clinical training, and professional development.', 'requirements': 'Enrolled on accredited counselling/therapy training · Student BACP membership · Available 2 days/week · Commitment to safeguarding', 'responsibilities': 'Carry a supervised caseload of 6–8 young people · Attend weekly group supervision · Complete clinical placement hours', 'skills_required': ['Counselling', 'Person-centred Therapy', 'Safeguarding', 'Case Notes', 'Supervision', 'Mental Health'], 'job_type': 'internship', 'experience_level': 'entry', 'work_mode': 'onsite', 'location': 'London, UK', 'salary_min': 15000, 'salary_max': 20000, 'category': 'Charity & Non-profit', 'company_idx': 13},
 ]
 
 SAMPLE_APPLICATIONS = [
-    {'candidate_idx': 0, 'job_title': 'Senior Full-Stack Developer',  'status': 'shortlisted',
-     'cover': 'I have 5 years building Django + React applications and would love to bring that to TechCorp.'},
-    {'candidate_idx': 0, 'job_title': 'Backend Python Developer',     'status': 'reviewing',
-     'cover': 'Python and Django REST Framework are my core stack. I write tests first and care deeply about API design.'},
-    {'candidate_idx': 0, 'job_title': 'Freelance React Developer',    'status': 'pending',
-     'cover': 'Available for 3 months. React and TypeScript are my daily tools.'},
-    {'candidate_idx': 1, 'job_title': 'Data Scientist',               'status': 'interview',
-     'cover': 'My MSc focused on NLP and I have production experience with scikit-learn pipelines — this role is a perfect fit.'},
-    {'candidate_idx': 1, 'job_title': 'NLP Research Engineer',        'status': 'pending',
-     'cover': 'I specialise in NLP and have worked extensively with HuggingFace Transformers.'},
-    {'candidate_idx': 1, 'job_title': 'Healthcare Data Scientist',    'status': 'reviewing',
-     'cover': 'Keen to apply my ML skills in a healthcare context where the impact is tangible.'},
-    {'candidate_idx': 2, 'job_title': 'DevOps / Platform Engineer',   'status': 'offered',
-     'cover': 'AWS Certified Solutions Architect with 4 years of Kubernetes experience.'},
-    {'candidate_idx': 2, 'job_title': 'Cloud Infrastructure Engineer (AWS)', 'status': 'reviewing',
-     'cover': 'Deep Terraform and AWS experience. Managing 200+ resources across 3 production accounts currently.'},
-    {'candidate_idx': 2, 'job_title': 'Contract AWS Solutions Architect', 'status': 'shortlisted',
-     'cover': 'Available for 6-month engagement. Multi-region migrations are my specialism.'},
+    {'candidate_idx': 0, 'job_title': 'Senior Full-Stack Developer',  'status': 'shortlisted', 'cover': 'I have 5 years building Django + React applications and would love to bring that to TechCorp.'},
+    {'candidate_idx': 0, 'job_title': 'Backend Python Developer',     'status': 'reviewing',   'cover': 'Python and Django REST Framework are my core stack. I write tests first and care deeply about API design.'},
+    {'candidate_idx': 0, 'job_title': 'Freelance React Developer',    'status': 'pending',     'cover': 'Available for 3 months. React and TypeScript are my daily tools. Happy to provide references.'},
+    {'candidate_idx': 1, 'job_title': 'Data Scientist',               'status': 'interview',   'cover': 'My MSc focused on NLP and I have production experience with scikit-learn pipelines — this role is a perfect fit.'},
+    {'candidate_idx': 1, 'job_title': 'NLP Research Engineer',        'status': 'pending',     'cover': 'I specialise in NLP and have worked extensively with HuggingFace Transformers for classification and NER.'},
+    {'candidate_idx': 1, 'job_title': 'AI / ML Engineer — Personalised Learning', 'status': 'reviewing', 'cover': 'Keen to apply ML skills in an EdTech context where the social impact is tangible.'},
+    {'candidate_idx': 2, 'job_title': 'DevOps / Platform Engineer',   'status': 'offered',     'cover': 'AWS Certified Solutions Architect with 4 years of Kubernetes experience at scale.'},
+    {'candidate_idx': 2, 'job_title': 'Software Engineer — Energy Grid', 'status': 'reviewing', 'cover': 'Excited about clean energy. My Python and infrastructure skills translate directly to IoT grid systems.'},
+    {'candidate_idx': 2, 'job_title': 'Retail Tech Developer (Shopify)', 'status': 'shortlisted', 'cover': 'Strong JavaScript and API integration experience. Keen to work on high-traffic e-commerce systems.'},
 ]
 
 
 class Command(BaseCommand):
     help = (
-        'Seeds 63 realistic jobs across 5 companies (TechCorp, DataVentures, HealthTech UK, FinanceHub, CreativeAgency).\n\n'
+        'Seeds 108 diverse jobs across 14 companies covering Tech, Data, Healthcare, Finance,\n'
+        'Creative, EdTech, Gaming, Clean Energy, Retail, Hospitality, Legal, Architecture,\n'
+        'Media, and Charity sectors.\n\n'
         'All job types: full_time, part_time, contract, freelance, internship\n'
         'All work modes: onsite, remote, hybrid\n'
-        'All experience levels: entry, mid, senior, lead, executive\n\n'
-        'Demo accounts (password: demo1234):\n'
-        '  hr@techcorp.com / talent@dataventures.io / careers@healthtechuk.com\n'
-        '  jobs@financehub.co.uk / hello@creativeagency.co.uk\n'
-        '  alex.chen@email.com / priya.sharma@email.com / tom.walker@email.com'
+        'All experience levels: entry, mid, senior, lead, executive'
     )
 
     def add_arguments(self, parser):
-        parser.add_argument('--clear', action='store_true',
-                            help='Delete existing seed data before re-seeding.')
+        parser.add_argument('--clear', action='store_true', help='Delete existing seed data first.')
 
     def handle(self, *args, **options):
         from accounts.models import User, CandidateProfile, RecruiterProfile
@@ -805,14 +196,15 @@ class Command(BaseCommand):
         from jobs.models import Job
 
         if options['clear']:
-            self.stdout.write('Clearing existing seed data…')
+            self.stdout.write('🗑  Clearing existing seed data...')
             emails = [r['email'] for r in RECRUITERS] + [c['email'] for c in CANDIDATES]
             Application.objects.filter(candidate__email__in=emails).delete()
             Job.objects.filter(recruiter__email__in=emails).delete()
             User.objects.filter(email__in=emails).delete()
+            self.stdout.write(self.style.SUCCESS('   Done.\n'))
 
         with transaction.atomic():
-            # Recruiters
+            # ── Recruiters ────────────────────────────────────────────────────
             recruiter_users = []
             for rec in RECRUITERS:
                 user, created = User.objects.get_or_create(
@@ -824,12 +216,14 @@ class Command(BaseCommand):
                     user.is_email_verified = True
                     user.save()
                     RecruiterProfile.objects.create(user=user, **rec['company'])
-                    self.stdout.write(self.style.SUCCESS(f'  ✓ Recruiter: {user.full_name}'))
+                    self.stdout.write(self.style.SUCCESS(f'  ✓ Recruiter  {user.full_name:<28} → {rec["company"]["company_name"]}'))
                 else:
-                    self.stdout.write(f'  → Recruiter exists: {user.email}')
+                    self.stdout.write(f'  → Exists  {user.email}')
                 recruiter_users.append(user)
 
-            # Candidates
+            self.stdout.write('')
+
+            # ── Candidates ────────────────────────────────────────────────────
             candidate_users = []
             for cand in CANDIDATES:
                 user, created = User.objects.get_or_create(
@@ -841,13 +235,16 @@ class Command(BaseCommand):
                     user.is_email_verified = True
                     user.save()
                     CandidateProfile.objects.create(user=user, **cand['profile'])
-                    self.stdout.write(self.style.SUCCESS(f'  ✓ Candidate: {user.full_name}'))
+                    self.stdout.write(self.style.SUCCESS(f'  ✓ Candidate  {user.full_name}'))
                 else:
-                    self.stdout.write(f'  → Candidate exists: {user.email}')
+                    self.stdout.write(f'  → Exists  {user.email}')
                 candidate_users.append(user)
 
-            # Jobs
-            job_map, jobs_created = {}, 0
+            self.stdout.write('')
+
+            # ── Jobs ──────────────────────────────────────────────────────────
+            job_map: dict[str, 'Job'] = {}
+            jobs_created = 0
             for job_data in JOBS:
                 recruiter = recruiter_users[job_data.pop('company_idx')]
                 company_name = recruiter.recruiter_profile.company_name
@@ -861,10 +258,10 @@ class Command(BaseCommand):
                     jobs_created += 1
 
             self.stdout.write(self.style.SUCCESS(
-                f'  ✓ {jobs_created} jobs created ({len(JOBS) - jobs_created} already existed)'
+                f'  ✓ {jobs_created} jobs created  ({len(JOBS) - jobs_created} already existed)'
             ))
 
-            # Applications
+            # ── Applications ──────────────────────────────────────────────────
             apps_created = 0
             for app_data in SAMPLE_APPLICATIONS:
                 candidate = candidate_users[app_data['candidate_idx']]
@@ -891,14 +288,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'  ✓ {apps_created} applications created'))
 
         self.stdout.write('')
-        self.stdout.write(self.style.SUCCESS(f'✅  Seeded {len(JOBS)} jobs across 5 companies!'))
+        self.stdout.write(self.style.SUCCESS('✅  Seed complete!'))
+        self.stdout.write('')
+        self.stdout.write(f'  {len(JOBS)} jobs  ·  14 companies  ·  8 sectors')
         self.stdout.write('')
         self.stdout.write('  Recruiter logins (password: demo1234):')
         for r in RECRUITERS:
-            self.stdout.write(f'    {r["email"]:<40} → {r["company"]["company_name"]}')
+            self.stdout.write(f'    {r["email"]:<42} → {r["company"]["company_name"]}')
         self.stdout.write('')
         self.stdout.write('  Candidate logins (password: demo1234):')
         for c in CANDIDATES:
             self.stdout.write(f'    {c["email"]}')
         self.stdout.write('')
-# This file is intentionally left blank - new companies/jobs appended below via patch

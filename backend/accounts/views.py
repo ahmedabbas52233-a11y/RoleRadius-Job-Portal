@@ -168,18 +168,48 @@ class CVUploadView(APIView):
         cv_file = request.FILES.get('cv')
         if not cv_file:
             return Response({'detail': 'No file provided.'}, status=400)
-        allowed = ['.pdf', '.docx', '.txt']
-        ext = '.' + cv_file.name.rsplit('.', 1)[-1].lower()
-        if ext not in allowed:
-            return Response({'detail': 'Only PDF, DOCX, and TXT files allowed.'}, status=400)
+
+        # Extension check
+        allowed_exts = ['.pdf', '.docx', '.txt']
+        name_lower = cv_file.name.lower()
+        if not any(name_lower.endswith(ext) for ext in allowed_exts):
+            return Response({'detail': 'Only PDF, DOCX, and TXT files are allowed.'}, status=400)
+
+        # Size check
         if cv_file.size > 5 * 1024 * 1024:
             return Response({'detail': 'File size cannot exceed 5 MB.'}, status=400)
+
+        # MIME type verification via magic bytes (python-magic)
+        try:
+            import magic
+            cv_file.seek(0)
+            header = cv_file.read(2048)
+            cv_file.seek(0)
+            mime = magic.from_buffer(header, mime=True)
+            allowed_mimes = [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/msword',
+                'text/plain',
+            ]
+            if mime not in allowed_mimes:
+                return Response({'detail': 'File content does not match its extension.'}, status=400)
+        except ImportError:
+            # python-magic not available — extension check is sufficient fallback
+            pass
+        except Exception:
+            pass
+
         profile = request.user.candidate_profile
         profile.cv = cv_file
         profile.cv_text = extract_text_from_cv(cv_file)
         profile.save()
-        return Response({'cv_url': profile.cv.url if profile.cv else None,
-                         'detail': 'CV uploaded and indexed for AI matching.'})
+        cv_url = None
+        try:
+            cv_url = profile.cv.url
+        except Exception:
+            pass
+        return Response({'cv_url': cv_url, 'detail': 'CV uploaded and indexed for AI matching.'})
 
 
 class RecruiterProfileView(generics.RetrieveUpdateAPIView):

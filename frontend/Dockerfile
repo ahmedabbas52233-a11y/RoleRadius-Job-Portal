@@ -1,15 +1,28 @@
-FROM node:20-alpine
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-
-# Install dependencies first (better Docker layer caching)
 COPY package*.json ./
-RUN npm ci
-
-# Copy source
+RUN npm ci --frozen-lockfile
 COPY . .
 
-EXPOSE 5173
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
 
-# Vite dev server — binds to 0.0.0.0 so Docker can expose the port
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+RUN npm run build
+
+# ── Stage 2: Serve with Nginx ─────────────────────────────────────────────────
+FROM nginx:alpine
+
+# Copy built files
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Nginx config — handles SPA routing + proxies /api to backend
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

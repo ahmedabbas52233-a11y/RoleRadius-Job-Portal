@@ -1,7 +1,8 @@
 version: '3.9'
 
 services:
-  # ── PostgreSQL database ───────────────────────────────────────────────────
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   db:
     image: postgres:15-alpine
     restart: unless-stopped
@@ -15,54 +16,63 @@ services:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # ── Django backend ────────────────────────────────────────────────────────
+  # ── Django API ──────────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py migrate --no-input &&
              python manage.py collectstatic --no-input &&
-             gunicorn roleradius.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+             python manage.py seed_jobs &&
+             gunicorn roleradius.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers 3
+               --timeout 120
+               --access-logfile -
+               --error-logfile -"
     volumes:
       - ./backend:/app
       - static_files:/app/staticfiles
-    ports:
-      - '8000:8000'
+      - media_files:/app/media
     environment:
-      DEBUG:               'True'
-      SECRET_KEY:          'docker-dev-secret-key-change-in-production'
-      DATABASE_URL:        'postgresql://postgres:postgres@db:5432/roleradius_db'
-      ALLOWED_HOSTS:       'localhost,127.0.0.1,backend'
-      CORS_ALLOWED_ORIGINS: 'http://localhost:5173,http://localhost:3000'
-      FRONTEND_URL:        'http://localhost:5173'
-      EMAIL_BACKEND:       'django.core.mail.backends.console.EmailBackend'
-      CLOUDINARY_CLOUD_NAME: ''
-      CLOUDINARY_API_KEY:    ''
-      CLOUDINARY_API_SECRET: ''
+      DEBUG:            'True'
+      SECRET_KEY:       'docker-dev-secret-key-change-this-in-production-min-50-chars'
+      DATABASE_URL:     'postgresql://postgres:postgres@db:5432/roleradius_db'
+      ALLOWED_HOSTS:    'localhost,127.0.0.1,backend,0.0.0.0'
+      CORS_ALLOWED_ORIGINS: 'http://localhost,http://localhost:80,http://localhost:5173'
+      CSRF_TRUSTED_ORIGINS: 'http://localhost,http://localhost:80,http://localhost:5173'
+      FRONTEND_URL:     'http://localhost'
+      EMAIL_BACKEND:    'django.core.mail.backends.console.EmailBackend'
+      PYTHONUTF8:       '1'
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:8000/api/health/ || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
-  # ── React frontend ────────────────────────────────────────────────────────
+  # ── React + Nginx ───────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
     restart: unless-stopped
     ports:
-      - '5173:5173'
-    environment:
-      VITE_API_URL: 'http://localhost:8000/api'
-    volumes:
-      - ./frontend/src:/app/src        # hot reload in dev
-      - /app/node_modules              # don't overwrite container's node_modules
+      - '80:80'
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   static_files:
+  media_files:

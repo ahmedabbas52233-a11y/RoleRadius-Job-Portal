@@ -1,92 +1,71 @@
 import { useState } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { authAPI } from '../services/api'
-import { Briefcase, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ResetPassword() {
   const { token } = useParams()
-  const navigate = useNavigate()
-  const [done, setDone] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm()
-  const password = watch('new_password')
+  const navigate  = useNavigate()
+  const [pw, setPw]           = useState('')
+  const [showPw, setShowPw]   = useState(false)
+  const [state, setState]     = useState('idle')
+  const [loading, setLoading] = useState(false)
 
-  const onSubmit = async (data) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
     try {
-      await authAPI.confirmPasswordReset({ token, ...data })
-      setDone(true)
-      toast.success('Password reset successfully!')
+      await authAPI.confirmPasswordReset({ token, new_password: pw })
+      setState('success')
       setTimeout(() => navigate('/login'), 2000)
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Reset failed. The link may have expired.'
-      toast.error(msg)
+      setState('error')
+      toast.error(err.response?.data?.detail || 'Reset failed. Link may have expired.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Briefcase className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Set new password</h1>
-          <p className="text-gray-500 mt-1">Choose a strong password for your account</p>
-        </div>
-
-        <div className="card p-8">
-          {done ? (
-            <div className="text-center">
-              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <p className="font-semibold text-gray-900">Password reset!</p>
-              <p className="text-sm text-gray-500 mt-2">Redirecting you to login…</p>
-            </div>
+    <div className="min-h-[60vh] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="card p-6 sm:p-8 text-center">
+          {state === 'success' ? (
+            <>
+              <CheckCircle className="w-12 h-12 text-brand-600 mx-auto mb-4" />
+              <h2 className="text-lg font-bold mb-2">Password reset!</h2>
+              <p className="text-sm text-gray-500">Redirecting you to sign in…</p>
+            </>
+          ) : state === 'error' ? (
+            <>
+              <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+              <h2 className="text-lg font-bold mb-2">Link expired</h2>
+              <p className="text-sm text-gray-500 mb-4">Request a new reset link.</p>
+              <Link to="/forgot-password" className="btn-primary w-full justify-center">Request New Link</Link>
+            </>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div>
-                <label className="label">New Password</label>
-                <div className="relative">
-                  <input type={showPassword ? 'text' : 'password'}
-                    className={`input pr-11 ${errors.new_password ? 'border-red-300' : ''}`}
-                    placeholder="Min. 8 characters"
-                    {...register('new_password', {
-                      required: 'Password is required',
-                      minLength: { value: 8, message: 'At least 8 characters' }
-                    })} />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            <>
+              <h1 className="text-xl font-bold mb-1 text-left">Choose new password</h1>
+              <p className="text-sm text-gray-500 mb-6 text-left">Must be at least 8 characters.</p>
+              <form onSubmit={handleSubmit} noValidate>
+                <div className="relative mb-4">
+                  <input type={showPw ? 'text' : 'password'} value={pw}
+                    onChange={e => setPw(e.target.value)} required minLength={8}
+                    className="input pr-11" placeholder="New password" autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    aria-label={showPw ? 'Hide' : 'Show'}>
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {errors.new_password && <p className="form-error">{errors.new_password.message}</p>}
-              </div>
-              <div>
-                <label className="label">Confirm Password</label>
-                <input type="password" className={`input ${errors.confirm_password ? 'border-red-300' : ''}`}
-                  placeholder="••••••••"
-                  {...register('confirm_password', {
-                    required: 'Please confirm',
-                    validate: v => v === password || 'Passwords do not match'
-                  })} />
-                {errors.confirm_password && <p className="form-error">{errors.confirm_password.message}</p>}
-              </div>
-              <button type="submit" disabled={isSubmitting} className="btn-primary w-full justify-center py-3">
-                {isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Resetting…
-                  </span>
-                ) : 'Reset Password'}
-              </button>
-            </form>
+                <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
+                  {loading ? 'Saving…' : 'Reset Password'}
+                </button>
+              </form>
+            </>
           )}
         </div>
-
-        <p className="text-center mt-6 text-sm text-gray-500">
-          <Link to="/login" className="text-brand-600 hover:text-brand-700 font-medium">Back to login</Link>
-        </p>
       </div>
     </div>
   )

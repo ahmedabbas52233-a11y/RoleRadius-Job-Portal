@@ -1,0 +1,25 @@
+# Development overrides — hot reload for backend and frontend
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.9'
+
+services:
+  backend:
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      context: ./frontend
+      target: builder
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_API_URL: http://localhost:8000/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules

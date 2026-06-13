@@ -22,6 +22,5 @@
   "tailwindCSS.experimental.configFile": "${workspaceFolder}/frontend/tailwind.config.js",
   "eslint.workingDirectories": [
     { "directory": "./frontend", "changeProcessCWD": true }
-  ],
-  "DockerRun.DisableAutoGenerateConfig": true
+  ]
 }
