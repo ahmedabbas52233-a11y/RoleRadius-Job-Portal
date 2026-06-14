@@ -18,23 +18,13 @@
 
 ---
 
-<!-- SCREENSHOT PLACEHOLDER — replace with actual screenshots after deployment -->
-<!--
-  HOW TO TAKE SCREENSHOTS:
-  1. Run: python manage.py seed_jobs
-  2. Start both servers
-  3. Take the following screenshots at 1280×800px and save to docs/screenshots/
--->
-
-| Home Page | Job Listings | AI Match Dashboard |
+| Home Page | Job Listings | AI Match Dashboard | Dashboard | Jobs Applied |
 |:---------:|:------------:|:-----------------:|
-| ![Home](docs/screenshots/home.png) | ![Jobs](docs/screenshots/jobs.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+| ![Home](docs/screenshots/Home-Page.png) | ![Jobs](docs/screenshots/Jobs-Listings.png) | ![AI-Dashboard](docs/screenshots/AI-Matched-Jobs.png) | ![Dashboard](docs/screenshots/Dashboard-1.png) | ![Jobs-Applied](docs/screenshots/Jobs-Applied.png) |
 
 | Job Detail | Recruiter Dashboard | Profile & CV Upload |
 |:----------:|:-------------------:|:-------------------:|
-| ![Detail](docs/screenshots/job-detail.png) | ![Recruiter](docs/screenshots/recruiter.png) | ![Profile](docs/screenshots/profile.png) |
-
-> **Screenshot guide:** Log in as `priya.sharma@email.com` / `demo1234` for the best AI match demo — her Data Science skills produce high match scores on DataVentures jobs.
+| ![Detail](docs/screenshots/Job-Details.png) | ![Recruiter](docs/screenshots/Recruiter-Dashboard.png) | ![Profile](docs/screenshots/Profile-CV.png) |
 
 </div>
 
