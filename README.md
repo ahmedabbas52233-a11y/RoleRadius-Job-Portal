@@ -19,11 +19,9 @@
 ---
 
 | Home Page | Job Listings | AI Match Dashboard | Dashboard | Jobs Applied |
-|:---------:|:------------:|:-----------------:|
 | ![Home](docs/screenshots/Home-Page.png) | ![Jobs](docs/screenshots/Jobs-Listings.png) | ![AI-Dashboard](docs/screenshots/AI-Matched-Jobs.png) | ![Dashboard](docs/screenshots/Dashboard-1.png) | ![Jobs-Applied](docs/screenshots/Jobs-Applied.png) |
 
 | Job Detail | Recruiter Dashboard | Profile & CV Upload |
-|:----------:|:-------------------:|:-------------------:|
 | ![Detail](docs/screenshots/Job-Details.png) | ![Recruiter](docs/screenshots/Recruiter-Dashboard.png) | ![Profile](docs/screenshots/Profile-CV.png) |
 
 </div>
