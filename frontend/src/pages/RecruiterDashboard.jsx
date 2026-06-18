@@ -3,120 +3,88 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { applicationsAPI, jobsAPI } from '../services/api'
 import ConfirmDialog from '../components/ConfirmDialog'
-import {
-  Briefcase, Users, TrendingUp, PlusCircle, Eye, EyeOff,
-  Trash2, Pencil, Zap, Award, Star, Clock, ChevronRight
-} from 'lucide-react'
+import { Briefcase, Users, Star, Award, PlusCircle, Eye, EyeOff, Trash2, Pencil, Zap, ChevronRight, Building2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'pending',     label: 'Pending' },
-  { value: 'reviewing',   label: 'Reviewing' },
-  { value: 'shortlisted', label: 'Shortlisted' },
-  { value: 'interview',   label: 'Interview' },
-  { value: 'offered',     label: 'Offered' },
-  { value: 'rejected',    label: 'Rejected' },
-]
-
-const STATUS_COLORS = {
-  pending:     'badge-gray',
-  reviewing:   'badge-blue',
-  shortlisted: 'badge-purple',
-  interview:   'badge-orange',
-  offered:     'badge-green',
-  rejected:    'badge-red',
-  withdrawn:   'badge-gray',
+const STATUS_META = {
+  pending:     {bg:'#f3f4f6',color:'#374151',label:'Pending'},
+  reviewing:   {bg:'#dbeafe',color:'#1e40af',label:'Reviewing'},
+  shortlisted: {bg:'#ede9fe',color:'#6d28d9',label:'Shortlisted'},
+  interview:   {bg:'#ffedd5',color:'#c2410c',label:'Interview'},
+  offered:     {bg:'#d1fae5',color:'#065f46',label:'Offered 🎉'},
+  rejected:    {bg:'#fee2e2',color:'#991b1b',label:'Rejected'},
+  withdrawn:   {bg:'#f3f4f6',color:'#4b5563',label:'Withdrawn'},
 }
+const NEXT_STATUSES = ['reviewing','shortlisted','interview','offered','rejected']
 
-function ApplicantCard({ app, onStatusUpdate }) {
+function ApplicantCard({ app, onUpdate }) {
+  const [open, setOpen]       = useState(false)
   const [updating, setUpdating] = useState(false)
-  const [expanded, setExpanded] = useState(false)
 
-  const handleStatusChange = async (newStatus) => {
+  const moveTo = async (status) => {
     setUpdating(true)
     try {
-      const { data } = await applicationsAPI.updateStatus(app.id, { status: newStatus })
-      onStatusUpdate(app.id, data)
-      toast.success(`Moved to ${newStatus}`)
-    } catch {
-      toast.error('Could not update status')
-    } finally {
-      setUpdating(false)
-    }
+      const { data } = await applicationsAPI.updateStatus(app.id, { status })
+      onUpdate(app.id, data)
+      toast.success(`Moved to ${status}`)
+    } catch { toast.error('Could not update') }
+    finally { setUpdating(false) }
   }
+
+  const meta = STATUS_META[app.status] || STATUS_META.pending
 
   return (
     <div className="card p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-brand-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-brand-700 font-semibold text-sm">
-              {app.candidate.full_name?.[0]?.toUpperCase()}
-            </span>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm text-white" style={{background:'linear-gradient(135deg,#6366f1,#a855f7)'}}>
+            {app.candidate?.full_name?.[0]?.toUpperCase()}
           </div>
-          <div>
-            <p className="font-semibold text-gray-900 text-sm">{app.candidate.full_name}</p>
-            <p className="text-xs text-gray-500">{app.candidate_profile?.headline || 'No headline'}</p>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm truncate" style={{color:'var(--text-1)'}}>{app.candidate?.full_name}</p>
+            <p className="text-xs truncate" style={{color:'var(--text-3)'}}>{app.candidate_profile?.headline||'No headline'}</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <span className={`badge ${STATUS_COLORS[app.status] || 'badge-gray'}`}>
-            {app.status?.replace('_', ' ')}
-          </span>
-          {app.match_score != null && (
-            <div className="flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full font-medium">
-              <Zap className="w-3 h-3" aria-hidden="true" /> {app.match_score.toFixed(0)}%
-            </div>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className="badge text-xs" style={{background:meta.bg,color:meta.color}}>{meta.label}</span>
+          {app.match_score!=null && (
+            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg" style={{background:'var(--primary-light)',color:'var(--primary)'}}>
+              <Zap className="w-3 h-3" aria-hidden="true"/>{Math.round(app.match_score)}%
+            </span>
           )}
         </div>
       </div>
-
       {app.candidate_profile?.skills?.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {app.candidate_profile.skills.slice(0, 5).map(s => (
-            <span key={s} className="px-2 py-0.5 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600">{s}</span>
+        <div className="flex flex-wrap gap-1 mt-2">
+          {app.candidate_profile.skills.slice(0,4).map(s=>(
+            <span key={s} className="px-2 py-0.5 rounded-md text-xs" style={{background:'var(--surface-2)',color:'var(--text-2)',border:'1px solid var(--border)'}}>{s}</span>
           ))}
         </div>
       )}
-
-      <div className="mt-3 flex items-center justify-between">
-        <p className="text-xs text-gray-400">
-          {formatDistanceToNow(new Date(app.applied_at), { addSuffix: true })}
-        </p>
-        <div className="flex items-center gap-2">
-          {app.cv_download_url && (
-            <a href={app.cv_download_url} target="_blank" rel="noreferrer"
-              className="text-xs text-brand-600 hover:underline font-medium">
-              View CV
-            </a>
-          )}
-          <button onClick={() => setExpanded(!expanded)}
-            className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
-            {expanded ? 'Less' : 'Actions'}
-            <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} aria-hidden="true" />
-          </button>
-        </div>
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-xs" style={{color:'var(--text-3)'}}>{formatDistanceToNow(new Date(app.applied_at),{addSuffix:true})}</span>
+        <button onClick={()=>setOpen(!open)} className="flex items-center gap-1 text-xs font-semibold transition-colors" style={{color:'var(--primary)'}} aria-expanded={open}>
+          Actions <ChevronRight className={`w-3.5 h-3.5 transition-transform ${open?'rotate-90':''}`} aria-hidden="true"/>
+        </button>
       </div>
-
-      {expanded && (
-        <div className="mt-3 pt-3 border-t border-gray-50">
-          <p className="text-xs font-medium text-gray-600 mb-2">Move to:</p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_OPTIONS.filter(s => s.value && s.value !== app.status && s.value !== 'withdrawn').map(({ value, label }) => (
-              <button key={value} onClick={() => handleStatusChange(value)} disabled={updating}
-                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-                {label}
-              </button>
-            ))}
+      {open && (
+        <div className="mt-3 pt-3 border-t animate-fade-up" style={{borderColor:'var(--border)'}}>
+          <p className="text-xs font-semibold mb-2" style={{color:'var(--text-2)'}}>Move to:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {NEXT_STATUSES.filter(s=>s!==app.status).map(s=>{
+              const m=STATUS_META[s]
+              return (
+                <button key={s} onClick={()=>moveTo(s)} disabled={updating} className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all disabled:opacity-50" style={{background:m.bg,color:m.color}}>
+                  {m.label}
+                </button>
+              )
+            })}
           </div>
           {app.cover_letter && (
             <div className="mt-3">
-              <p className="text-xs font-medium text-gray-600 mb-1">Cover Letter:</p>
-              <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg line-clamp-4 whitespace-pre-line">
-                {app.cover_letter}
-              </p>
+              <p className="text-xs font-semibold mb-1" style={{color:'var(--text-2)'}}>Cover letter:</p>
+              <p className="text-xs rounded-xl p-3 line-clamp-3" style={{background:'var(--surface-2)',color:'var(--text-2)'}}>{app.cover_letter}</p>
             </div>
           )}
         </div>
@@ -125,93 +93,64 @@ function ApplicantCard({ app, onStatusUpdate }) {
   )
 }
 
-function JobRow({ job, onToggle, onDelete }) {
+function JobRow({ job, isSelected, onSelect, onToggle, onDelete }) {
   const [toggling, setToggling] = useState(false)
-  const [active, setActive] = useState(job.is_active)
-  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [active, setActive]     = useState(job.is_active)
+  const [delConfirm, setDelConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const handleToggle = async (e) => {
-    e.stopPropagation()
-    setToggling(true)
+  const toggle = async e => {
+    e.stopPropagation(); setToggling(true)
     try {
       const { data } = await jobsAPI.toggleActive(job.id)
       setActive(data.is_active)
       toast.success(data.is_active ? 'Job activated' : 'Job paused')
       onToggle?.(job.id, data.is_active)
-    } catch {
-      toast.error('Could not update job')
-    } finally {
-      setToggling(false)
-    }
+    } catch { toast.error('Failed') }
+    finally { setToggling(false) }
   }
 
-  const handleDelete = async () => {
+  const doDelete = async () => {
     setDeleting(true)
-    try {
-      await jobsAPI.delete(job.id)
-      toast.success('Job deleted')
-      onDelete?.(job.id)
-    } catch {
-      toast.error('Could not delete job')
-    } finally {
-      setDeleting(false)
-      setDeleteConfirm(false)
-    }
+    try { await jobsAPI.delete(job.id); toast.success('Job deleted'); onDelete?.(job.id) }
+    catch { toast.error('Could not delete') }
+    finally { setDeleting(false); setDelConfirm(false) }
   }
 
   return (
     <>
-      <div className={`card p-4 transition-opacity ${!active ? 'opacity-60' : ''}`}>
-        <div className="flex items-start justify-between gap-3">
+      <div onClick={onSelect} className={`card p-4 cursor-pointer transition-all ${isSelected?'ring-2':''} ${!active?'opacity-60':''}`}
+        style={isSelected?{'--tw-ring-color':'var(--primary)',borderColor:'var(--primary)'}:{}}
+        role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onSelect()}}
+        aria-selected={isSelected} aria-label={`Select ${job.title}`}>
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <Link to={`/jobs/${job.id}`}
-              className="font-semibold text-gray-900 hover:text-brand-600 transition-colors block truncate text-sm">
-              {job.title}
-            </Link>
-            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-              <span>{job.application_count} applicants</span>
-              <span>{job.views_count} views</span>
-              <span>{formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}</span>
+            <p className="font-semibold text-sm truncate" style={{color:'var(--text-1)'}}>{job.title}</p>
+            <div className="flex items-center gap-3 mt-1 text-xs" style={{color:'var(--text-3)'}}>
+              <span>{job.application_count||0} applicants</span>
+              <span>{job.views_count||0} views</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Link to={`/recruiter/jobs/${job.id}/edit`}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-              title="Edit job" aria-label={`Edit ${job.title}`}>
-              <Pencil className="w-4 h-4" aria-hidden="true" />
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Link to={`/recruiter/jobs/${job.id}/edit`} onClick={e=>e.stopPropagation()} className="p-1.5 rounded-lg transition-colors" style={{color:'var(--text-3)'}} aria-label={`Edit ${job.title}`}>
+              <Pencil className="w-3.5 h-3.5" aria-hidden="true"/>
             </Link>
-            <button onClick={handleToggle} disabled={toggling}
-              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors ${
-                active
-                  ? 'text-green-700 border-green-200 bg-green-50 hover:bg-green-100'
-                  : 'text-gray-500 border-gray-200 bg-gray-50 hover:bg-gray-100'
-              } disabled:opacity-50`}
-              aria-label={active ? 'Pause job' : 'Activate job'}>
-              {active
-                ? <><Eye className="w-3.5 h-3.5" aria-hidden="true" /> Active</>
-                : <><EyeOff className="w-3.5 h-3.5" aria-hidden="true" /> Paused</>}
+            <button onClick={toggle} disabled={toggling}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-semibold transition-all disabled:opacity-50"
+              style={active?{background:'#d1fae5',color:'#065f46'}:{background:'#f3f4f6',color:'#6b7280'}}
+              aria-label={active?'Pause job':'Activate job'}>
+              {active ? <Eye className="w-3 h-3" aria-hidden="true"/> : <EyeOff className="w-3 h-3" aria-hidden="true"/>}
+              {active ? 'Live' : 'Paused'}
             </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(true) }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-              aria-label={`Delete ${job.title}`}>
-              <Trash2 className="w-4 h-4" aria-hidden="true" />
+            <button onClick={e=>{e.stopPropagation();setDelConfirm(true)}} className="p-1.5 rounded-lg transition-colors text-red-400 hover:text-red-600 hover:bg-red-50" aria-label={`Delete ${job.title}`}>
+              <Trash2 className="w-3.5 h-3.5" aria-hidden="true"/>
             </button>
           </div>
         </div>
       </div>
-
-      <ConfirmDialog
-        open={deleteConfirm}
-        title="Delete this job?"
-        message={`"${job.title}" will be removed from listings. Any applications already submitted will be preserved in your records.`}
-        confirmLabel="Delete Job"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteConfirm(false)}
-        loading={deleting}
-        danger
-      />
+      <ConfirmDialog open={delConfirm} title="Delete this job?"
+        message={`"${job.title}" will be removed. Applications already submitted are preserved.`}
+        confirmLabel="Delete Job" danger loading={deleting} onConfirm={doDelete} onCancel={()=>setDelConfirm(false)} />
     </>
   )
 }
@@ -226,167 +165,136 @@ export default function RecruiterDashboard() {
   const [loadingApps, setLoadingApps]   = useState(false)
   const [loading, setLoading]           = useState(true)
 
-  useEffect(() => {
-    Promise.allSettled([
-      applicationsAPI.recruiterStats(),
-      jobsAPI.myJobs(),
-    ]).then(([statsRes, jobsRes]) => {
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data)
-      if (jobsRes.status === 'fulfilled') {
-        const list = jobsRes.value.data.results || []
-        setJobs(list)
-        if (list.length > 0) setSelectedJob(list[0])
-      }
-    }).finally(() => setLoading(false))
-  }, [])
+  useEffect(()=>{
+    Promise.allSettled([applicationsAPI.recruiterStats(), jobsAPI.myJobs()])
+      .then(([s,j])=>{
+        if (s.status==='fulfilled') setStats(s.value.data)
+        if (j.status==='fulfilled') {
+          const list = j.value.data.results||[]
+          setJobs(list)
+          if (list.length>0) setSelectedJob(list[0])
+        }
+      }).finally(()=>setLoading(false))
+  },[])
 
-  useEffect(() => {
+  useEffect(()=>{
     if (!selectedJob) return
     setLoadingApps(true)
-    applicationsAPI.jobApplications(
-      selectedJob.id,
-      statusFilter ? { status: statusFilter } : {}
-    )
-      .then(({ data }) => setApplications(data.results || []))
-      .catch(() => setApplications([]))
-      .finally(() => setLoadingApps(false))
-  }, [selectedJob, statusFilter])
+    applicationsAPI.jobApplications(selectedJob.id, statusFilter?{status:statusFilter}:{})
+      .then(({data})=>setApplications(data.results||[]))
+      .catch(()=>setApplications([]))
+      .finally(()=>setLoadingApps(false))
+  },[selectedJob,statusFilter])
 
-  const handleAppStatusUpdate = (appId, updated) => {
-    setApplications(prev => prev.map(a => a.id === appId ? updated : a))
+  const handleAppUpdate = (id,updated) => setApplications(prev=>prev.map(a=>a.id===id?updated:a))
+  const handleJobDelete = id => {
+    setJobs(prev=>{ const n=prev.filter(j=>j.id!==id); if(selectedJob?.id===id)setSelectedJob(n[0]||null); return n })
   }
 
-  const handleJobDelete = (deletedId) => {
-    setJobs(prev => {
-      const next = prev.filter(j => j.id !== deletedId)
-      if (selectedJob?.id === deletedId) setSelectedJob(next[0] || null)
-      return next
-    })
-  }
-
-  const statCards = [
-    { label: 'Active Jobs',        value: stats?.active_jobs ?? '—',       icon: Briefcase, color: 'text-brand-600 bg-brand-50' },
-    { label: 'Total Applications', value: stats?.total_applications ?? '—', icon: Users,     color: 'text-purple-600 bg-purple-50' },
-    { label: 'Shortlisted',        value: stats?.status_breakdown?.shortlisted ?? '—', icon: Star, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Offers Made',        value: stats?.status_breakdown?.offered ?? '—', icon: Award, color: 'text-green-600 bg-green-50' },
+  const STATS = [
+    {label:'Active Jobs',  v:stats?.active_jobs??'—',                      color:'#6366f1',bg:'#eef2ff', Icon:Briefcase},
+    {label:'Applications', v:stats?.total_applications??'—',                color:'#7c3aed',bg:'#ede9fe', Icon:Users},
+    {label:'Shortlisted',  v:stats?.status_breakdown?.shortlisted??'—',    color:'#d97706',bg:'#fef3c7', Icon:Star},
+    {label:'Offers',       v:stats?.status_breakdown?.offered??'—',        color:'#059669',bg:'#d1fae5', Icon:Award},
   ]
 
   return (
-    <div className="page-container py-8">
-      <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
-        <div>
-          <h1 className="section-title">
-            {profile?.company_name || user?.full_name} Dashboard
-          </h1>
-          <p className="text-gray-500 mt-1">Manage your listings and review applicants</p>
-        </div>
-        <Link to="/recruiter/post-job" className="btn-primary">
-          <PlusCircle className="w-4 h-4" aria-hidden="true" /> Post a Job
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-5">
-            <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-3`}>
-              <Icon className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-            <p className="text-sm text-gray-500 mt-0.5">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {jobs.length === 0 && !loading ? (
-        <div className="card p-16 text-center">
-          <Briefcase className="w-14 h-14 text-gray-200 mx-auto mb-4" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">No jobs posted yet</h2>
-          <p className="text-gray-400 mb-6">Post your first job to start receiving applications</p>
-          <Link to="/recruiter/post-job" className="btn-primary">
-            <PlusCircle className="w-4 h-4" aria-hidden="true" /> Post Your First Job
-          </Link>
-        </div>
-      ) : (
-        <div className="grid lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-gray-900">Your Jobs</h2>
-              <Link to="/recruiter/post-job"
-                className="text-xs text-brand-600 font-medium hover:underline flex items-center gap-1">
-                <PlusCircle className="w-3.5 h-3.5" aria-hidden="true" /> New Job
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {jobs.map(job => (
-                <div key={job.id}
-                  className={`cursor-pointer rounded-2xl transition-all ${
-                    selectedJob?.id === job.id ? 'ring-2 ring-brand-500' : ''
-                  }`}
-                  onClick={() => setSelectedJob(job)}>
-                  <JobRow
-                    job={job}
-                    onToggle={(id, active) =>
-                      setJobs(prev => prev.map(j => j.id === id ? { ...j, is_active: active } : j))
-                    }
-                    onDelete={handleJobDelete}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="lg:col-span-3">
-            {selectedJob ? (
-              <>
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div>
-                    <h2 className="font-semibold text-gray-900">{selectedJob.title}</h2>
-                    <p className="text-xs text-gray-400">{applications.length} applicants</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {STATUS_OPTIONS.slice(0, 5).map(({ value, label }) => (
-                      <button key={value} onClick={() => setStatusFilter(value)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border transition-all font-medium ${
-                          statusFilter === value
-                            ? 'bg-brand-600 text-white border-brand-600'
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                        }`}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {loadingApps ? (
-                  <div className="space-y-3">
-                    {Array(3).fill(0).map((_, i) => (
-                      <div key={i} className="card p-5 animate-pulse h-24" />
-                    ))}
-                  </div>
-                ) : applications.length === 0 ? (
-                  <div className="card p-12 text-center">
-                    <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" aria-hidden="true" />
-                    <p className="text-gray-500">
-                      {statusFilter ? `No ${statusFilter} applicants` : 'No applications yet'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {applications.map(app => (
-                      <ApplicantCard key={app.id} app={app} onStatusUpdate={handleAppStatusUpdate} />
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="card p-12 text-center">
-                <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" aria-hidden="true" />
-                <p className="text-gray-400">Select a job to view applicants</p>
+    <div style={{background:'var(--surface-2)',minHeight:'100vh'}}>
+      <div style={{background:'linear-gradient(135deg,#1e1b4b,#4c1d95)',padding:'32px 0 80px'}}>
+        <div className="page-container">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,.15)'}}>
+                <Building2 className="w-6 h-6 text-white" aria-hidden="true"/>
               </div>
-            )}
+              <div>
+                <p className="text-sm font-semibold" style={{color:'rgba(165,180,252,.8)'}}>{profile?.company_name||'Company'}</p>
+                <h1 className="font-extrabold text-white" style={{fontSize:'clamp(1.25rem,3vw,1.75rem)',letterSpacing:'-.02em'}}>Recruiter Dashboard</h1>
+              </div>
+            </div>
+            <Link to="/recruiter/post-job" className="btn-primary text-sm" style={{background:'rgba(255,255,255,.15)',boxShadow:'none'}}>
+              <PlusCircle className="w-4 h-4" aria-hidden="true"/> Post a Job
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+            {STATS.map(({label,v,color,bg,Icon})=>(
+              <div key={label} className="card p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:bg}}>
+                    <Icon className="w-3.5 h-3.5" style={{color}} aria-hidden="true"/>
+                  </div>
+                </div>
+                <p className="text-2xl font-extrabold" style={{color}}>{v}</p>
+                <p className="text-xs font-semibold mt-0.5" style={{color:'var(--text-2)'}}>{label}</p>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
+
+      <div className="page-container" style={{marginTop:'-40px',paddingBottom:'40px'}}>
+        {jobs.length===0 && !loading ? (
+          <div className="card p-16 text-center">
+            <Briefcase className="w-14 h-14 mx-auto mb-4" style={{color:'var(--text-3)'}} aria-hidden="true"/>
+            <h2 className="font-bold text-lg mb-2" style={{color:'var(--text-1)'}}>No jobs posted yet</h2>
+            <p className="text-sm mb-6" style={{color:'var(--text-2)'}}>Post your first job to start receiving applications</p>
+            <Link to="/recruiter/post-job" className="btn-primary"><PlusCircle className="w-4 h-4" aria-hidden="true"/> Post First Job</Link>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-5 gap-5">
+            <div className="lg:col-span-2">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-bold" style={{color:'var(--text-1)'}}>Your Jobs</h2>
+                <Link to="/recruiter/post-job" className="flex items-center gap-1 text-xs font-semibold" style={{color:'var(--primary)'}}>
+                  <PlusCircle className="w-3.5 h-3.5" aria-hidden="true"/> New
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {jobs.map(job=>(
+                  <JobRow key={job.id} job={job} isSelected={selectedJob?.id===job.id} onSelect={()=>setSelectedJob(job)}
+                    onToggle={(id,a)=>setJobs(prev=>prev.map(j=>j.id===id?{...j,is_active:a}:j))}
+                    onDelete={handleJobDelete} />
+                ))}
+              </div>
+            </div>
+            <div className="lg:col-span-3">
+              {selectedJob ? (
+                <>
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div>
+                      <h2 className="font-bold" style={{color:'var(--text-1)'}}>{selectedJob.title}</h2>
+                      <p className="text-xs" style={{color:'var(--text-3)'}}>{applications.length} applicants</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {['','reviewing','shortlisted','interview','offered'].map(s=>(
+                        <button key={s} onClick={()=>setStatusFilter(s)} className="text-xs px-2.5 py-1 rounded-lg font-semibold transition-all"
+                          style={statusFilter===s ? {background:'var(--primary)',color:'white'} : {background:'var(--surface)',color:'var(--text-2)',border:'1px solid var(--border)'}}>
+                          {s===''?'All':(STATUS_META[s]?.label||s)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {loadingApps ? (
+                    <div className="space-y-3">{Array(3).fill(0).map((_,i)=><div key={i} className="skeleton h-24 rounded-2xl" aria-hidden="true"/>)}</div>
+                  ) : applications.length===0 ? (
+                    <div className="card p-12 text-center">
+                      <Users className="w-10 h-10 mx-auto mb-3" style={{color:'var(--text-3)'}} aria-hidden="true"/>
+                      <p style={{color:'var(--text-2)'}}>No {statusFilter||''} applicants yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">{applications.map(app=><ApplicantCard key={app.id} app={app} onUpdate={handleAppUpdate}/>)}</div>
+                  )}
+                </>
+              ) : (
+                <div className="card p-12 text-center">
+                  <Users className="w-10 h-10 mx-auto mb-3" style={{color:'var(--text-3)'}} aria-hidden="true"/>
+                  <p style={{color:'var(--text-2)'}}>Select a job to view applicants</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

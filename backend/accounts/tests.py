@@ -176,7 +176,8 @@ class PasswordResetTests(TestCase):
         token_obj = PasswordResetToken.objects.create(user=self.user)
         res = self.client.post(reverse('password_reset_confirm'), {
             'token': str(token_obj.token),
-            'new_password': 'newSecurePass456'
+            'new_password': 'newSecurePass456',
+            'confirm_password': 'newSecurePass456'
         })
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
@@ -186,9 +187,9 @@ class PasswordResetTests(TestCase):
         from .models import PasswordResetToken
         token_obj = PasswordResetToken.objects.create(user=self.user)
         self.client.post(reverse('password_reset_confirm'), {
-            'token': str(token_obj.token), 'new_password': 'newpass456'
+            'token': str(token_obj.token), 'new_password': 'newpass456', 'confirm_password': 'newpass456'
         })
         res2 = self.client.post(reverse('password_reset_confirm'), {
-            'token': str(token_obj.token), 'new_password': 'anotherpass789'
+            'token': str(token_obj.token), 'new_password': 'anotherpass789', 'confirm_password': 'anotherpass789'
         })
         self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
