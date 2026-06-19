@@ -41,6 +41,7 @@ class RegisterTests(TestCase):
     def test_register_candidate(self):
         res = self.client.post(self.url, {
             'email': 'new@test.com', 'password': 'testpass123',
+            'confirm_password': 'testpass123',
             'full_name': 'New User', 'role': 'candidate'
         })
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
@@ -50,7 +51,9 @@ class RegisterTests(TestCase):
     def test_register_recruiter(self):
         res = self.client.post(self.url, {
             'email': 'rec@test.com', 'password': 'testpass123',
-            'full_name': 'New Recruiter', 'role': 'recruiter'
+            'confirm_password': 'testpass123',
+            'full_name': 'New Recruiter', 'role': 'recruiter',
+            'company_name': 'Test Recruiting Co'
         })
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.data['user']['role'], 'recruiter')
