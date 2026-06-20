@@ -66,7 +66,7 @@ class JobDetailSerializer(JobListSerializer):
 class JobCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
-        exclude = ['id', 'recruiter', 'views_count', 'deleted_at', 'created_at', 'updated_at']
+        exclude = ['id', 'recruiter', 'company_name', 'views_count', 'deleted_at', 'created_at', 'updated_at']
 
     def validate_skills_required(self, value):
         if not isinstance(value, list):
