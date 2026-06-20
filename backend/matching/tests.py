@@ -15,7 +15,7 @@ class CleanTextTests(TestCase):
         self.assertEqual(clean_text('PYTHON DEVELOPER'), 'python developer')
 
     def test_removes_punctuation(self):
-        self.assertEqual(clean_text('python, django!'), 'python  django ')
+        self.assertEqual(clean_text('python, django!'), 'python django')
 
     def test_empty_string_returns_empty(self):
         self.assertEqual(clean_text(''), '')

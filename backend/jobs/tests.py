@@ -78,16 +78,10 @@ class JobCreateTests(TestCase):
         self.candidate = make_candidate()
         self.url = reverse('job_create')
         self.payload = {
-    'title': 'New Role',
-    'description': 'Great role',
-    'requirements': 'Some exp',
-    'skills_required': ['React'],
-    'location': 'London',
-    'job_type': 'full_time',
-    'experience_level': 'mid',
-    'work_mode': 'remote',
-    'company_name': 'Acme', 
-}
+            'title': 'New Role', 'description': 'Great role', 'requirements': 'Some exp',
+            'skills_required': ['React'], 'location': 'London',
+            'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
+        }
 
     def test_recruiter_can_create_job(self):
         self.client.force_authenticate(user=self.recruiter)
