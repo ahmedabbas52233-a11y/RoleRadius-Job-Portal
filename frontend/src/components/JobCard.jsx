@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { MapPin, Clock, Banknote, Bookmark, BookmarkCheck, Zap, Building2, Briefcase } from 'lucide-react'
 import { jobsAPI } from '../services/api'
@@ -19,7 +19,7 @@ const MODE_STYLES = {
   onsite: {bg:'#f3f4f6',color:'#374151',label:'On-site'},
 }
 
-export default function JobCard({ job, onSaveToggle }) {
+function JobCard({ job, onSaveToggle }) {
   const { isAuthenticated, isCandidate } = useAuth()
   const [saved, setSaved]   = useState(job.is_saved || false)
   const [saving, setSaving] = useState(false)
@@ -57,7 +57,7 @@ export default function JobCard({ job, onSaveToggle }) {
             <div className="w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0"
               style={{background:'var(--surface-2)',borderColor:'var(--border)'}}>
               {job.company_logo
-                ? <img src={job.company_logo} alt={`${job.company_name} logo`} className="w-8 h-8 object-contain rounded-lg" />
+                ? <img src={job.company_logo} alt={`${job.company_name} logo`} loading="lazy" decoding="async" className="w-8 h-8 object-contain rounded-lg" />
                 : <Building2 className="w-5 h-5" style={{color:'var(--text-3)'}} aria-hidden="true" />}
             </div>
             <div className="min-w-0">
@@ -113,3 +113,5 @@ export default function JobCard({ job, onSaveToggle }) {
     </article>
   )
 }
+
+export default memo(JobCard)

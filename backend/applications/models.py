@@ -41,6 +41,14 @@ class Application(models.Model):
         db_table = 'applications'
         unique_together = ['job', 'candidate']
         ordering = ['-applied_at']
+        indexes = [
+            # Candidate dashboard: filter by candidate, optionally by status
+            models.Index(fields=['candidate', 'status'], name='app_candidate_status_idx'),
+            # Recruiter applicant list: filter by job, optionally by status
+            models.Index(fields=['job', 'status'], name='app_job_status_idx'),
+            # Recruiter applicant list default ordering: highest match score first
+            models.Index(fields=['job', '-match_score'], name='app_job_score_idx'),
+        ]
 
     def __str__(self):
         return f'{self.candidate.full_name} → {self.job.title}'

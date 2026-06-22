@@ -26,6 +26,10 @@ python-magic==0.4.27; sys_platform != "win32"
 scikit-learn==1.4.2
 numpy==1.26.4
 
+# Caching — django-redis only activates if REDIS_URL env var is set,
+# otherwise Django falls back to the built-in LocMemCache automatically
+django-redis==5.4.0
+
 # Utilities
 django-filter==23.5
 dj-database-url==2.1.0

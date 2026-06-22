@@ -232,6 +232,33 @@ AXES_LOCKOUT_CALLABLE = 'accounts.views.axes_lockout_response'
 LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
 
+# ── Caching ───────────────────────────────────────────────────────────────────
+# Used by the ML matching engine to cache the fitted TF-IDF corpus (see
+# matching/engine.py) instead of re-fitting a vectorizer on every request.
+#
+# Defaults to Django's in-process LocMemCache — zero config, works out of the
+# box in Docker/Railway with no extra services. If a managed Redis instance is
+# attached (Railway's Redis plugin, or any REDIS_URL), the cache automatically
+# becomes shared across all gunicorn workers instead of per-process, which
+# matters once you scale past a single worker — but nothing breaks if it's
+# absent; LocMemCache is a fully correct fallback, just per-process.
+REDIS_URL = os.getenv('REDIS_URL')
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'roleradius-cache',
+        }
+    }
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

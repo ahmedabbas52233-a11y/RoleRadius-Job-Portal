@@ -14,4 +14,23 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    // Split vendor libraries into their own chunk so the browser can cache
+    // React/Router/etc. across deploys — only the app-code chunk changes
+    // (and needs re-downloading) when you ship a feature update.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui':      ['lucide-react', 'react-hot-toast'],
+          'vendor-motion':  ['framer-motion'],
+        },
+      },
+    },
+    // Surface a warning if any chunk balloons unexpectedly instead of
+    // silently shipping a huge bundle
+    chunkSizeWarningLimit: 600,
+  },
 })

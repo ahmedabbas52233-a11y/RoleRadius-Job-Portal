@@ -4,10 +4,13 @@ whose profile matches above the threshold score.
 
 Runs synchronously (no Celery required). With Celery this would be
 `notify_matching_candidates.delay(job.id)`.
+
+Also invalidates the matching engine's cached job corpus on any Job change,
+so candidate match scores never reflect a stale job list.
 """
 import logging
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
 from django.core.mail import send_mail
@@ -15,6 +18,20 @@ from django.core.mail import send_mail
 logger = logging.getLogger('roleradius')
 
 ALERT_THRESHOLD = 40.0   # Only email candidates with ≥40% match
+
+
+@receiver(post_save, sender='jobs.Job')
+def invalidate_job_cache_on_save(sender, instance, **kwargs):
+    """Job content, salary, or active status changed — the cached match corpus is stale."""
+    from matching.engine import invalidate_job_corpus_cache
+    invalidate_job_corpus_cache()
+
+
+@receiver(post_delete, sender='jobs.Job')
+def invalidate_job_cache_on_delete(sender, instance, **kwargs):
+    """Covers hard deletes (e.g. via Django admin) in addition to the soft-delete save() above."""
+    from matching.engine import invalidate_job_corpus_cache
+    invalidate_job_corpus_cache()
 
 
 @receiver(post_save, sender='jobs.Job')

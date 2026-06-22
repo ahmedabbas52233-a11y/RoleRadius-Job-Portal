@@ -6,6 +6,45 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.0] — Performance & completeness pass
+
+### Added
+- **Cached ML matching corpus** — `matching/engine.py` no longer re-fits a TF-IDF
+  vectorizer on every single request. The job corpus and candidate corpus are
+  each fitted once and cached (Django cache framework; LocMemCache by default,
+  auto-upgrades to Redis if `REDIS_URL` is set), with signal-driven invalidation
+  on any `Job` or `CandidateProfile` change. Dashboard "AI Matches" loads now
+  transform a single query against a pre-fitted matrix instead of rebuilding
+  the whole vectorizer from scratch per request.
+- **`EditJob.jsx` fully implemented** — was a stub. Now fetches the job, prefills
+  every field including skills, and PATCHes changes through `jobsAPI.update()`.
+- **In-flight GET request dedup** in `frontend/src/services/api.js` — concurrent
+  identical GET calls collapse into a single network round-trip. No response
+  caching involved, so nothing can ever be served stale.
+- **Vite vendor chunk splitting** — React/Router, UI libs, and framer-motion
+  build into separate cacheable chunks so a feature deploy doesn't force
+  visitors to re-download the entire vendor bundle.
+- `django-redis` added as an optional dependency — activates automatically only
+  if `REDIS_URL` is present in the environment.
+
+### Changed
+- `RecruiterDashboardStatsView` / `CandidateDashboardStatsView` — replaced
+  7 separate per-status `.count()` queries with a single aggregate
+  `.values('status').annotate(count=Count('id'))` query.
+- `Application` model — added composite indexes matching actual query
+  patterns: `(candidate, status)`, `(job, status)`, `(job, -match_score)`.
+  **Requires running `python manage.py makemigrations applications` before
+  deploying this version.**
+- `JobCard.jsx` wrapped in `React.memo` — skips re-render when the `job` prop
+  reference is unchanged (e.g. toggling unrelated UI state no longer
+  re-renders every card on the page).
+- Company logo `<img>` tags now use `loading="lazy" decoding="async"`.
+- `nginx.conf` — added `gzip_vary`, `gzip_proxied`, explicit `gzip_comp_level 6`,
+  and a hard `no-cache` rule on `index.html` so deploys can never strand a
+  returning visitor on a stale app shell.
+
+---
+
 ## [1.0.0] — 2026-06-07
 
 ### Added — Backend

@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
-from django.db import transaction
+from django.db import transaction, models
 
 from .models import Application, ApplicationStatusHistory
 from .serializers import (
@@ -160,10 +160,19 @@ class RecruiterDashboardStatsView(APIView):
         from django.db.models import Count
         jobs = Job.objects.filter(recruiter=request.user)
         applications = Application.objects.filter(job__recruiter=request.user)
+
+        # Single aggregate query instead of one COUNT per status choice
+        counts_by_status = dict(
+            applications.values('status').annotate(n=Count('id')).values_list('status', 'n')
+        )
         status_breakdown = {
-            choice[0]: applications.filter(status=choice[0]).count()
+            choice[0]: counts_by_status.get(choice[0], 0)
             for choice in Application.STATUS_CHOICES
         }
+
+        # Single aggregate query instead of two separate .count() calls
+        job_counts = jobs.aggregate(total=Count('id'), active=Count('id', filter=models.Q(is_active=True)))
+
         recent = ApplicationRecruiterSerializer(
             applications.select_related(
                 'candidate__candidate_profile', 'job'
@@ -171,9 +180,9 @@ class RecruiterDashboardStatsView(APIView):
             many=True
         ).data
         return Response({
-            'total_jobs':         jobs.count(),
-            'active_jobs':        jobs.filter(is_active=True).count(),
-            'total_applications': applications.count(),
+            'total_jobs':         job_counts['total'],
+            'active_jobs':        job_counts['active'],
+            'total_applications': sum(status_breakdown.values()),
             'status_breakdown':   status_breakdown,
             'recent_applications': recent,
         })
@@ -183,12 +192,18 @@ class CandidateDashboardStatsView(APIView):
     permission_classes = [IsCandidate]
 
     def get(self, request):
+        from django.db.models import Count
         applications = Application.objects.filter(candidate=request.user)
+
+        # Single aggregate query instead of one COUNT per status choice
+        counts_by_status = dict(
+            applications.values('status').annotate(n=Count('id')).values_list('status', 'n')
+        )
         status_breakdown = {
-            choice[0]: applications.filter(status=choice[0]).count()
+            choice[0]: counts_by_status.get(choice[0], 0)
             for choice in Application.STATUS_CHOICES
         }
         return Response({
-            'total_applications': applications.count(),
+            'total_applications': sum(status_breakdown.values()),
             'status_breakdown':   status_breakdown,
         })

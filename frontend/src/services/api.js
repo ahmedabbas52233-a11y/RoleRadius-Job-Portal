@@ -33,6 +33,28 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// ── In-flight GET request dedup ────────────────────────────────────────────────
+// If the same GET (same URL + same params) is already in flight, return the
+// existing promise instead of firing a second identical network request.
+// This only collapses concurrent duplicate calls — once a response lands the
+// entry is cleared immediately, so nothing is ever served stale. It changes
+// *when* a request resolves, never *what* it resolves to. Wraps api.get
+// directly so every existing *API.xxx() call below benefits with zero changes.
+const inFlightGetRequests = new Map()
+const _rawGet = api.get.bind(api)
+
+api.get = (url, config = {}) => {
+  const key = `${url}?${JSON.stringify(config.params || {})}`
+  const pending = inFlightGetRequests.get(key)
+  if (pending) return pending
+
+  const promise = _rawGet(url, config).finally(() => {
+    inFlightGetRequests.delete(key)
+  })
+  inFlightGetRequests.set(key, promise)
+  return promise
+}
+
 // Auto-refresh on 401 — but NEVER redirect from here
 let isRefreshing = false
 let failedQueue  = []
