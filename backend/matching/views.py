@@ -1,17 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import permissions
 from django.shortcuts import get_object_or_404
+
 from .engine import get_matched_jobs_for_candidate, get_matched_candidates_for_job
 from jobs.models import Job
 from jobs.serializers import JobListSerializer
-from accounts.models import User
 from accounts.permissions import IsCandidate, IsRecruiter
-
-
-
-
-
 
 class MatchedJobsView(APIView):
     """Return top matched jobs for the logged-in candidate."""

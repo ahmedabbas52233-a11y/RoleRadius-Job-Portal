@@ -1,12 +1,13 @@
 {
   "include": ["backend"],
   "exclude": [
+    "**/.*",
     "**/node_modules",
     "**/__pycache__",
     "**/venv",
     "**/migrations"
   ],
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.12",
   "pythonPlatform": "Windows",
   "typeCheckingMode": "basic",
   "reportMissingModuleSource": "none",

@@ -14,7 +14,7 @@ django-csp==3.8
 # File storage
 cloudinary==1.36.0
 django-cloudinary-storage==0.3.0
-Pillow==10.1.0
+Pillow==10.4.0
 
 # CV text extraction
 pdfminer.six==20221105

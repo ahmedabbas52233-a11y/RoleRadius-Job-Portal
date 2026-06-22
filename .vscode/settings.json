@@ -1,12 +1,7 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
-  "python.analysis.extraPaths": [
-    "${workspaceFolder}/backend"
-  ],
-  "python.analysis.diagnosticSeverityOverrides": {
-    "reportMissingModuleSource": "none"
-  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe",
   "python.terminal.activateEnvironment": true,
+  "python-envs.defaultEnvManager": "ms-python.python:system",
   "css.validate": false,
   "scss.validate": false,
   "files.associations": {
@@ -16,12 +11,11 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
-  "[javascript]":  { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "tailwindCSS.experimental.configFile": "${workspaceFolder}/frontend/tailwind.config.js",
   "eslint.workingDirectories": [
     { "directory": "./frontend", "changeProcessCWD": true }
-  ],
-  "python-envs.defaultEnvManager": "ms-python.python:system"
+  ]
 }
