@@ -154,3 +154,70 @@ class SaveJobTests(TestCase):
         self.client.force_authenticate(user=self.recruiter)
         res = self.client.post(reverse('save_job', kwargs={'pk': self.job.pk}))
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class JobUpdateRescoresApplicationsTests(TestCase):
+    """
+    Regression test: batch_score_applications existed in matching/engine.py
+    but nothing ever called it, so Application.match_score went stale the
+    moment a recruiter edited a job's requirements. JobUpdateView now calls
+    it after every save.
+    """
+    def setUp(self):
+        from applications.models import Application
+        self.client = APIClient()
+        self.recruiter = make_recruiter()
+        self.candidate = make_candidate()
+        CandidateProfile.objects.filter(user=self.candidate).update(
+            skills=['Python', 'Django'], headline='Backend developer',
+            bio='Experienced with Python and Django APIs.',
+        )
+        self.job = make_job(
+            self.recruiter,
+            description='Looking for a chef with catering experience.',
+            requirements='Cooking, food safety',
+            skills_required=['Cooking'],
+        )
+        self.app = Application.objects.create(job=self.job, candidate=self.candidate, match_score=1.0)
+
+    def test_updating_job_requirements_rescoring_changes_match_score(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.patch(
+            reverse('job_update', kwargs={'pk': self.job.pk}),
+            {
+                'description': 'Looking for a Python Django backend developer.',
+                'requirements': 'Python, Django, REST APIs',
+                'skills_required': ['Python', 'Django'],
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertGreater(self.app.match_score, 1.0)
+
+
+class JobTypeChoicesConsistencyTests(TestCase):
+    """
+    CandidateProfile.JOB_TYPE_CHOICES is intentionally duplicated from
+    Job.JOB_TYPE_CHOICES (see the comment in accounts/models.py for why:
+    avoiding an accounts -> jobs model import). This test is the guard that
+    duplication relies on -- if anyone edits one list without the other,
+    this fails immediately instead of silently breaking job-type matching
+    in matching/engine.py.
+    """
+    def test_candidate_and_job_type_choices_are_identical(self):
+        from accounts.models import CandidateProfile
+        job_codes = {c[0] for c in Job.JOB_TYPE_CHOICES}
+        candidate_codes = {c[0] for c in CandidateProfile.JOB_TYPE_CHOICES}
+        self.assertEqual(
+            job_codes, candidate_codes,
+            "Job.JOB_TYPE_CHOICES and CandidateProfile.JOB_TYPE_CHOICES have "
+            "drifted apart -- update both together."
+        )
+
+    def test_candidate_and_job_type_labels_are_identical(self):
+        from accounts.models import CandidateProfile
+        self.assertEqual(
+            dict(Job.JOB_TYPE_CHOICES), dict(CandidateProfile.JOB_TYPE_CHOICES),
+            "Job type labels have drifted apart between Job and CandidateProfile."
+        )

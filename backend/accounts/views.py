@@ -1,24 +1,29 @@
 import logging
 
-from rest_framework import generics, status, permissions
+from rest_framework import generics, status, permissions, filters as drf_filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.tokens import RefreshToken
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet, CharFilter, NumberFilter
 from django.contrib.auth import update_session_auth_hash
 from django.core import signing
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db import models
 from django.shortcuts import get_object_or_404
 
 from .models import User, CandidateProfile, RecruiterProfile, PasswordResetToken
+from applications.models import Application
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     CandidateProfileSerializer, CandidateProfileUpdateSerializer,
+    CandidateSearchResultSerializer,
     RecruiterProfileSerializer, RecruiterProfileUpdateSerializer,
     ChangePasswordSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer
 )
+from .permissions import IsRecruiter
 from .throttles import LoginRateThrottle, PasswordResetRateThrottle, RegisterRateThrottle
 from .utils import extract_text_from_cv, send_verification_email, make_cookie_response, clear_cookie_response
 
@@ -246,6 +251,41 @@ class ChangePasswordView(APIView):
         return Response({'detail': 'Password changed successfully.'})
 
 
+class DeleteAccountView(APIView):
+    """
+    Self-service account deletion (GDPR "right to erasure").
+
+    Requires the current password as confirmation — this is a destructive,
+    irreversible action. Deleting a User cascades (see models.py
+    on_delete=CASCADE) to their CandidateProfile/RecruiterProfile and every
+    Application tied to them. For a recruiter this also deletes every Job
+    they posted (and, transitively, all applications to those jobs) — the
+    frontend must warn about this consequence before calling this endpoint.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        password = request.data.get('password', '')
+        if not password or not request.user.check_password(password):
+            return Response({'password': 'Incorrect password.'}, status=400)
+
+        user = request.user
+        email = user.email
+        try:
+            refresh_token = request.COOKIES.get(settings.JWT_COOKIE_REFRESH_NAME)
+            if refresh_token:
+                RefreshToken(refresh_token).blacklist()
+        except Exception:
+            pass
+
+        user.delete()
+        logger = logging.getLogger('roleradius')
+        logger.info('Account deleted: %s', email)
+
+        response = Response({'detail': 'Your account and all associated data have been deleted.'})
+        return clear_cookie_response(response)
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [PasswordResetRateThrottle]
@@ -289,11 +329,42 @@ class PasswordResetConfirmView(APIView):
 
 
 class PublicCandidateProfileView(generics.RetrieveAPIView):
+    """
+    Recruiter-only candidate profile lookup.
+
+    SECURITY: this previously allowed any authenticated user (candidates
+    included) to fetch any other candidate's full profile — email, phone,
+    desired salary, education, experience — by guessing/discovering a UUID.
+    Only recruiters have a legitimate need to look up a candidate by ID
+    (e.g. from a matched-candidates or applicant list), so this is now
+    scoped to IsRecruiter, and further restricted to candidates who are
+    actually open_to_work (a recruiter has no legitimate need to view the
+    profile of someone who has turned visibility off, unless that person
+    has applied to one of their jobs — see has_object_permission below).
+    """
     serializer_class = CandidateProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    queryset = CandidateProfile.objects.all()
+    permission_classes = [IsRecruiter]
     lookup_field = 'user__id'
     lookup_url_kwarg = 'user_id'
+
+    def get_queryset(self):
+        return CandidateProfile.objects.select_related('user')
+
+    def get_object(self):
+        profile = super().get_object()
+        # Allow the lookup if the candidate is open to work, OR if they have
+        # applied to one of this recruiter's jobs (so a recruiter can always
+        # review an applicant, even after that applicant flips open_to_work
+        # off post-application).
+        if profile.open_to_work:
+            return profile
+        has_applied = Application.objects.filter(
+            candidate=profile.user, job__recruiter=self.request.user
+        ).exists()
+        if not has_applied:
+            from django.http import Http404
+            raise Http404('Candidate profile not found.')
+        return profile
 
 
 class PublicRecruiterProfileView(generics.RetrieveAPIView):
@@ -302,3 +373,45 @@ class PublicRecruiterProfileView(generics.RetrieveAPIView):
     queryset = RecruiterProfile.objects.all()
     lookup_field = 'user__id'
     lookup_url_kwarg = 'user_id'
+
+
+class CandidateSearchFilter(FilterSet):
+    location = CharFilter(field_name='location', lookup_expr='icontains')
+    min_experience_years = NumberFilter(field_name='experience_years', lookup_expr='gte')
+    max_experience_years = NumberFilter(field_name='experience_years', lookup_expr='lte')
+
+    class Meta:
+        model = CandidateProfile
+        fields = ['location', 'min_experience_years', 'max_experience_years']
+
+
+class CandidateSearchView(generics.ListAPIView):
+    """
+    Recruiter-only talent search: browse/search the pool of open-to-work
+    candidates directly, rather than only ever seeing whoever happened to
+    apply. This is the "sourcing" half of recruiting that a pure
+    inbound-applicants pipeline can't do.
+
+    `skills` accepts a comma-separated list and matches candidates who
+    have ANY of the given skills (case-insensitive), e.g.
+    ?skills=Python,Django
+    """
+    serializer_class = CandidateSearchResultSerializer
+    permission_classes = [IsRecruiter]
+    filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
+    filterset_class = CandidateSearchFilter
+    search_fields = ['headline', 'bio', 'location']
+    ordering_fields = ['experience_years', 'created_at']
+    ordering = ['-updated_at']
+
+    def get_queryset(self):
+        qs = CandidateProfile.objects.filter(open_to_work=True).select_related('user')
+        skills_param = self.request.query_params.get('skills')
+        if skills_param:
+            wanted = [s.strip().lower() for s in skills_param.split(',') if s.strip()]
+            if wanted:
+                q = models.Q()
+                for skill in wanted:
+                    q |= models.Q(skills__icontains=skill)
+                qs = qs.filter(q)
+        return qs

@@ -61,7 +61,17 @@ export function AuthProvider({ children }) {
   }, [fetchProfile])
 
   const logout = useCallback(async () => {
-    try { await authAPI.logout() } catch {}
+    // Best-effort server-side logout (blacklists the refresh token) — even
+    // if it fails (e.g. already expired), we still clear local state below.
+    try { await authAPI.logout() } catch { /* ignore */ }
+    setUser(null)
+    setProfile(null)
+  }, [])
+
+  // For flows where the server side is already handled (e.g. delete-account,
+  // which blacklists the token and clears cookies itself) — avoids an extra,
+  // guaranteed-to-401 logout call right after the account no longer exists.
+  const clearSession = useCallback(() => {
     setUser(null)
     setProfile(null)
   }, [])
@@ -85,6 +95,7 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
+      clearSession,
       refreshProfile,
       updateUser,
     }}>

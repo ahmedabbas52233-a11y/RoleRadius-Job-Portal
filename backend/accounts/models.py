@@ -62,6 +62,26 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class CandidateProfile(models.Model):
+    # Mirrors jobs.models.Job.JOB_TYPE_CHOICES exactly (same codes/labels).
+    # Deliberately duplicated rather than imported from the jobs app: a
+    # candidate profile shouldn't need to import another app's models just
+    # for a handful of string constants, and accounts should stay loadable
+    # independently of jobs. The two lists are kept honest by
+    # jobs/tests.py::JobTypeChoicesConsistencyTests, which fails loudly if
+    # they're ever edited out of sync — update both together.
+    FULL_TIME  = 'full_time'
+    PART_TIME  = 'part_time'
+    CONTRACT   = 'contract'
+    FREELANCE  = 'freelance'
+    INTERNSHIP = 'internship'
+    JOB_TYPE_CHOICES = [
+        (FULL_TIME,  'Full Time'),
+        (PART_TIME,  'Part Time'),
+        (CONTRACT,   'Contract'),
+        (FREELANCE,  'Freelance'),
+        (INTERNSHIP, 'Internship'),
+    ]
+
     user             = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate_profile')
     headline         = models.CharField(max_length=200, blank=True)
     bio              = models.TextField(blank=True)
@@ -79,7 +99,12 @@ class CandidateProfile(models.Model):
     cv_text          = models.TextField(blank=True)
     desired_salary_min = models.PositiveIntegerField(null=True, blank=True)
     desired_salary_max = models.PositiveIntegerField(null=True, blank=True)
-    desired_job_type   = models.CharField(max_length=50, blank=True)
+    # A candidate may be open to more than one arrangement (e.g. full-time
+    # AND contract) — a list of the same structured codes Job.job_type uses,
+    # not freeform text, so this can actually be matched against rather than
+    # silently ignored (previously a CharField that was never validated
+    # against Job's choices and was never used in scoring at all).
+    desired_job_types  = models.JSONField(default=list, blank=True)
     open_to_work     = models.BooleanField(default=True)
     created_at       = models.DateTimeField(auto_now_add=True)
     updated_at       = models.DateTimeField(auto_now=True)

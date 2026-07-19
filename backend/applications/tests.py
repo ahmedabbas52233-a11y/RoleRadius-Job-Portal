@@ -108,6 +108,141 @@ class WithdrawApplicationTests(TestCase):
         res = self.client.post(reverse('withdraw_application', kwargs={'pk': self.app.pk}))
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_withdrawing_an_offered_application_becomes_offer_declined(self):
+        """Declining an extended offer is a distinct outcome from a generic withdrawal."""
+        self.app.status = Application.OFFERED
+        self.app.save()
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.post(reverse('withdraw_application', kwargs={'pk': self.app.pk}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.OFFER_DECLINED)
+
+    def test_cannot_withdraw_hired_application(self):
+        self.app.status = Application.HIRED
+        self.app.save()
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.post(reverse('withdraw_application', kwargs={'pk': self.app.pk}))
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class StatusTransitionGuardTests(TestCase):
+    """An application can only be hired or have an offer declined once it has actually been offered."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.candidate = make_candidate()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.app = make_application(self.candidate, self.job)
+        self.client.force_authenticate(user=self.recruiter)
+
+    def test_cannot_jump_straight_to_hired(self):
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'status': 'hired'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.PENDING)
+
+    def test_can_mark_hired_after_offered(self):
+        self.app.status = Application.OFFERED
+        self.app.save()
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'status': 'hired'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.HIRED)
+
+    def test_cannot_move_a_rejected_application_anywhere(self):
+        self.app.status = Application.REJECTED
+        self.app.save()
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'status': 'shortlisted'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_notes_only_update_does_not_require_status_change(self):
+        """A recruiter should be able to jot a note without forcing a status transition."""
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'recruiter_notes': 'Strong candidate, follow up next week.'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.PENDING)
+        self.assertEqual(self.app.recruiter_notes, 'Strong candidate, follow up next week.')
+
+
+class BulkUpdateApplicationStatusTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.candidates = [make_candidate(email=f'c{i}@test.com') for i in range(3)]
+        self.apps = [make_application(c, self.job) for c in self.candidates]
+        self.client.force_authenticate(user=self.recruiter)
+
+    def test_bulk_update_moves_all_valid_applications(self):
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(a.pk) for a in self.apps], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['updated']), 3)
+        for app in self.apps:
+            app.refresh_from_db()
+            self.assertEqual(app.status, Application.SHORTLISTED)
+
+    def test_bulk_update_skips_illegal_transitions_without_failing_whole_batch(self):
+        self.apps[0].status = Application.REJECTED
+        self.apps[0].save()
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(a.pk) for a in self.apps], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['updated']), 2)
+        self.assertEqual(len(res.data['skipped']), 1)
+
+    def test_bulk_update_cannot_touch_another_recruiters_applications(self):
+        other_recruiter = make_recruiter(email='other_rec2@test.com')
+        other_job = make_job(other_recruiter)
+        other_app = make_application(make_candidate(email='outside@test.com'), other_job)
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(other_app.pk)], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['updated'], [])
+        self.assertIn(str(other_app.pk), res.data['not_found'])
+        other_app.refresh_from_db()
+        self.assertEqual(other_app.status, Application.PENDING)
+
+    def test_bulk_update_rejects_invalid_status_value(self):
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(self.apps[0].pk)], 'status': 'not_a_real_status'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bulk_update_requires_recruiter_role(self):
+        self.client.force_authenticate(user=self.candidates[0])
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(self.apps[0].pk)], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class RecruiterUpdateStatusTests(TestCase):
     def setUp(self):
@@ -146,6 +281,34 @@ class RecruiterUpdateStatusTests(TestCase):
             {'status': 'shortlisted'}, format='json'
         )
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class MatchBreakdownExposureTests(TestCase):
+    """The explainability fields added to matching/engine.py should surface on application views."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.candidate = make_candidate()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.app = make_application(self.candidate, self.job)
+
+    def test_candidate_application_list_includes_match_breakdown(self):
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.get(reverse('my_applications'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        result = res.data['results'][0] if 'results' in res.data else res.data[0]
+        self.assertIn('match_breakdown', result)
+        self.assertIn('matched_skills', result['match_breakdown'])
+
+    def test_recruiter_applicant_list_includes_match_breakdown_and_cv_link(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(reverse('job_applications', kwargs={'job_id': self.job.pk}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        result = res.data['results'][0] if 'results' in res.data else res.data[0]
+        self.assertIn('match_breakdown', result)
+        self.assertIn('cv_download_url', result)
+        self.assertIn('bio', result['candidate_profile'])
 
 
 class DashboardStatsTests(TestCase):

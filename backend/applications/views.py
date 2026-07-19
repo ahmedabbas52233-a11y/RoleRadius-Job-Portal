@@ -74,19 +74,22 @@ class WithdrawApplicationView(APIView):
 
     def post(self, request, pk):
         application = get_object_or_404(Application, pk=pk, candidate=request.user)
-        if application.status in [Application.OFFERED, Application.REJECTED]:
+        if application.status in Application.TERMINAL_STATUSES:
             return Response({'detail': 'Cannot withdraw a concluded application.'}, status=400)
         old_status = application.status
-        application.status = Application.WITHDRAWN
+        # Declining an extended offer is a distinct, more meaningful outcome
+        # than a generic withdrawal — keeps offer-acceptance-rate accurate.
+        new_status = Application.OFFER_DECLINED if old_status == Application.OFFERED else Application.WITHDRAWN
+        application.status = new_status
         application.save(update_fields=['status'])
         ApplicationStatusHistory.objects.create(
             application=application,
             from_status=old_status,
-            to_status=Application.WITHDRAWN,
-            note='Withdrawn by candidate',
+            to_status=new_status,
+            note='Offer declined by candidate' if new_status == Application.OFFER_DECLINED else 'Withdrawn by candidate',
             changed_by=request.user,
         )
-        return Response({'detail': 'Application withdrawn.'})
+        return Response({'detail': 'Offer declined.' if new_status == Application.OFFER_DECLINED else 'Application withdrawn.'})
 
 
 class CandidateApplicationsView(generics.ListAPIView):
@@ -140,6 +143,12 @@ class UpdateApplicationStatusView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         old_status = application.status
+        new_status = serializer.validated_data.get('status', old_status)
+        if not application.can_transition_to(new_status):
+            return Response(
+                {'detail': f'Cannot move from "{old_status}" to "{new_status}".'},
+                status=400,
+            )
         note = serializer.validated_data.pop('note', '')
         serializer.save()
         if old_status != application.status:
@@ -151,6 +160,61 @@ class UpdateApplicationStatusView(APIView):
                 changed_by=request.user,
             )
         return Response(ApplicationRecruiterSerializer(application).data)
+
+
+class BulkUpdateApplicationStatusView(APIView):
+    """
+    Move many applications to a new status in one call.
+    Body: {"application_ids": [...], "status": "rejected", "note": "..."}
+    Every ID is re-verified as belonging to one of the recruiter's own jobs
+    (no trusting the client-supplied list) and the same transition rules as
+    the single-application endpoint apply per application — an application
+    that can't legally make the move is skipped and reported back, not
+    silently forced or allowed to break the whole batch.
+    """
+    permission_classes = [IsRecruiter]
+
+    @transaction.atomic
+    def patch(self, request):
+        application_ids = request.data.get('application_ids') or []
+        new_status = request.data.get('status')
+        note = request.data.get('note', '')
+
+        if not isinstance(application_ids, list) or not application_ids:
+            return Response({'detail': 'application_ids must be a non-empty list.'}, status=400)
+        valid_statuses = [c[0] for c in Application.STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response({'detail': f'Invalid status. Choose from: {valid_statuses}'}, status=400)
+
+        applications = list(
+            Application.objects.filter(id__in=application_ids, job__recruiter=request.user)
+        )
+        found_ids = {str(a.id) for a in applications}
+        not_found = [str(i) for i in application_ids if str(i) not in found_ids]
+
+        updated, skipped = [], []
+        for application in applications:
+            old_status = application.status
+            if not application.can_transition_to(new_status):
+                skipped.append({'id': str(application.id), 'reason': f'Cannot move from "{old_status}" to "{new_status}".'})
+                continue
+            if old_status != new_status:
+                application.status = new_status
+                application.save(update_fields=['status'])
+                ApplicationStatusHistory.objects.create(
+                    application=application,
+                    from_status=old_status,
+                    to_status=new_status,
+                    note=note,
+                    changed_by=request.user,
+                )
+            updated.append(str(application.id))
+
+        return Response({
+            'updated': updated,
+            'skipped': skipped,
+            'not_found': not_found,
+        })
 
 
 class RecruiterDashboardStatsView(APIView):

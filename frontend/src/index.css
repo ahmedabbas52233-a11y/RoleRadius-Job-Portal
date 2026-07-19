@@ -16,7 +16,7 @@
   --border:         #e8e7f8;
   --text-1:         #0f0e17;
   --text-2:         #4b4b6b;
-  --text-3:         #9898b8;
+  --text-3:         #6b6b8a; /* was #9898b8 (2.8:1 on white — fails WCAG AA); now ~5.1:1 on white, ~4.8:1 on --surface-2 */
   --radius-sm:      10px;
   --radius-md:      14px;
   --radius-lg:      20px;

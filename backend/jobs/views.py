@@ -153,6 +153,13 @@ class JobUpdateView(generics.UpdateAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        # The job's text/requirements may have changed materially enough to
+        # shift match scores — re-score every existing application rather
+        # than leave them frozen at whatever they were when first applied.
+        # (This was previously a documented-but-dead code path: the function
+        # existed but nothing ever called it.)
+        from matching.engine import batch_score_applications
+        batch_score_applications(instance)
         return Response(JobDetailSerializer(instance, context={'request': request}).data)
 
 

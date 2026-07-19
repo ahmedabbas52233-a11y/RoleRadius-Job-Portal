@@ -196,3 +196,147 @@ class PasswordResetTests(TestCase):
             'token': str(token_obj.token), 'new_password': 'anotherpass789', 'confirm_password': 'anotherpass789'
         })
         self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PublicCandidateProfileSecurityTests(TestCase):
+    """
+    Regression tests for the PII-exposure fix: /api/auth/candidates/<id>/
+    must be recruiter-only, never reachable by another candidate, and
+    must not leak profiles of candidates who are not open_to_work unless
+    they've applied to that specific recruiter's job.
+    """
+    def setUp(self):
+        self.client = APIClient()
+        self.target = make_candidate(email='target@test.com', full_name='Target Candidate')
+        self.target.candidate_profile.headline = 'Senior Engineer'
+        self.target.candidate_profile.phone = '+44 7000 000000'
+        self.target.candidate_profile.save()
+        self.url = reverse('public_candidate', kwargs={'user_id': self.target.id})
+
+    def test_other_candidate_cannot_view_profile(self):
+        other_candidate = make_candidate(email='nosy@test.com', full_name='Nosy Candidate')
+        self.client.force_authenticate(user=other_candidate)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_user_cannot_view_profile(self):
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_recruiter_can_view_open_to_work_profile(self):
+        recruiter = make_recruiter(email='hiring@test.com')
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['headline'], 'Senior Engineer')
+
+    def test_recruiter_cannot_view_opted_out_non_applicant(self):
+        self.target.candidate_profile.open_to_work = False
+        self.target.candidate_profile.save()
+        recruiter = make_recruiter(email='hiring2@test.com')
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_recruiter_can_view_opted_out_applicant_to_their_job(self):
+        from jobs.models import Job
+        from applications.models import Application
+        self.target.candidate_profile.open_to_work = False
+        self.target.candidate_profile.save()
+        recruiter = make_recruiter(email='hiring3@test.com')
+        job = Job.objects.create(
+            recruiter=recruiter, title='Backend Dev', company_name='Test Corp',
+            description='d', requirements='r', location='Remote',
+        )
+        Application.objects.create(job=job, candidate=self.target)
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+
+class CandidateSearchTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.recruiter = make_recruiter(email='sourcer@test.com')
+        self.open_candidate = make_candidate(email='open@test.com', full_name='Open Candidate')
+        self.open_candidate.candidate_profile.skills = ['Python', 'Django']
+        self.open_candidate.candidate_profile.location = 'London, UK'
+        self.open_candidate.candidate_profile.experience_years = 5
+        self.open_candidate.candidate_profile.open_to_work = True
+        self.open_candidate.candidate_profile.save()
+
+        self.closed_candidate = make_candidate(email='closed@test.com', full_name='Closed Candidate')
+        self.closed_candidate.candidate_profile.skills = ['Python']
+        self.closed_candidate.candidate_profile.open_to_work = False
+        self.closed_candidate.candidate_profile.save()
+
+        self.url = reverse('candidate_search')
+
+    def test_only_recruiters_can_search(self):
+        self.client.force_authenticate(user=self.open_candidate)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_only_open_to_work_candidates_appear(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        names = [r['full_name'] for r in res.data['results']]
+        self.assertIn('Open Candidate', names)
+        self.assertNotIn('Closed Candidate', names)
+
+    def test_search_results_exclude_pii(self):
+        """The list view must never leak email/phone/salary — only the detail view does."""
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url)
+        result = res.data['results'][0]
+        self.assertNotIn('email', result)
+        self.assertNotIn('phone', result)
+        self.assertNotIn('desired_salary_min', result)
+
+    def test_filter_by_skill(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url, {'skills': 'Django'})
+        names = [r['full_name'] for r in res.data['results']]
+        self.assertEqual(names, ['Open Candidate'])
+
+    def test_filter_by_location(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url, {'location': 'London'})
+        names = [r['full_name'] for r in res.data['results']]
+        self.assertIn('Open Candidate', names)
+
+
+class DeleteAccountTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = make_candidate(email='deleteme@test.com')
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse('delete_account')
+
+    def test_wrong_password_rejected(self):
+        res = self.client.post(self.url, {'password': 'wrongpass'})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(User.objects.filter(email='deleteme@test.com').exists())
+
+    def test_correct_password_deletes_account(self):
+        res = self.client.post(self.url, {'password': 'testpass123'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(User.objects.filter(email='deleteme@test.com').exists())
+
+    def test_deleting_recruiter_cascades_their_jobs(self):
+        from jobs.models import Job
+        recruiter = make_recruiter(email='rec_delete@test.com')
+        job = Job.objects.create(
+            recruiter=recruiter, title='Dev', company_name='Acme',
+            description='d', requirements='r',
+        )
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.post(self.url, {'password': 'testpass123'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(Job.objects.filter(id=job.id).exists())
+
+    def test_unauthenticated_cannot_delete(self):
+        self.client.force_authenticate(user=None)
+        res = self.client.post(self.url, {'password': 'testpass123'})
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { MapPin, Clock, Banknote, Bookmark, BookmarkCheck, Zap, Building2, Briefcase } from 'lucide-react'
 import { jobsAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import MatchBreakdown from './MatchBreakdown'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -103,6 +104,18 @@ function JobCard({ job, onSaveToggle }) {
             <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg" style={{background:'var(--primary-light)',color:'var(--primary)'}}>
               <Zap className="w-3 h-3" aria-hidden="true"/>{Math.round(job.match_score)}%
             </span>
+          </div>
+        )}
+
+        {job.matched_skills !== undefined && (
+          <div className="mt-3">
+            <MatchBreakdown breakdown={{
+              matched_skills: job.matched_skills,
+              missing_skills: job.missing_skills,
+              location_compatible: job.location_compatible,
+              experience_fit: job.experience_fit,
+              salary_compatible: job.salary_compatible,
+            }} />
           </div>
         )}
 

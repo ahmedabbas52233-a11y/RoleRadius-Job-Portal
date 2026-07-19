@@ -16,5 +16,6 @@ urlpatterns = [
 
     # ── Recruiter ──────────────────────────────────────────────────────────
     path('job/<uuid:job_id>/', views.JobApplicationsView.as_view(), name='job_applications'),
+    path('bulk-update/', views.BulkUpdateApplicationStatusView.as_view(), name='bulk_update_status'),
     path('<uuid:pk>/status/', views.UpdateApplicationStatusView.as_view(), name='update_status'),
 ]

@@ -8,6 +8,8 @@ class Application(models.Model):
     SHORTLISTED = 'shortlisted'
     INTERVIEW = 'interview'
     OFFERED = 'offered'
+    HIRED = 'hired'
+    OFFER_DECLINED = 'offer_declined'
     REJECTED = 'rejected'
     WITHDRAWN = 'withdrawn'
 
@@ -17,11 +19,37 @@ class Application(models.Model):
         (SHORTLISTED, 'Shortlisted'),
         (INTERVIEW, 'Interview Scheduled'),
         (OFFERED, 'Offer Extended'),
+        (HIRED, 'Hired'),
+        (OFFER_DECLINED, 'Offer Declined'),
         (REJECTED, 'Rejected'),
         (WITHDRAWN, 'Withdrawn'),
     ]
 
-    STATUS_ORDER = [PENDING, REVIEWING, SHORTLISTED, INTERVIEW, OFFERED]
+    STATUS_ORDER = [PENDING, REVIEWING, SHORTLISTED, INTERVIEW, OFFERED, HIRED]
+
+    # Statuses an application cannot move on from — used by both the
+    # candidate-withdraw flow and the recruiter status-update flow so
+    # "concluded" means the same thing everywhere in the codebase.
+    TERMINAL_STATUSES = {HIRED, OFFER_DECLINED, REJECTED, WITHDRAWN}
+
+    # Active stages can move forward/laterally to any other active stage
+    # (a recruiter can fast-track a strong candidate straight from "pending"
+    # to "interview" without forcing every intermediate click) or to
+    # REJECTED. HIRED / OFFER_DECLINED are only reachable from OFFERED —
+    # you can't be hired for, or decline, an offer you were never given.
+    # Every status in TERMINAL_STATUSES is a dead end.
+    _ACTIVE_FORWARD = {REVIEWING, SHORTLISTED, INTERVIEW, OFFERED, REJECTED}
+    VALID_TRANSITIONS = {
+        PENDING:        _ACTIVE_FORWARD,
+        REVIEWING:      _ACTIVE_FORWARD,
+        SHORTLISTED:    _ACTIVE_FORWARD,
+        INTERVIEW:      _ACTIVE_FORWARD,
+        OFFERED:        {HIRED, OFFER_DECLINED, REJECTED},
+        HIRED:          set(),
+        OFFER_DECLINED: set(),
+        REJECTED:       set(),
+        WITHDRAWN:      set(),
+    }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey('jobs.Job', on_delete=models.CASCADE, related_name='applications')
@@ -60,6 +88,12 @@ class Application(models.Model):
             return self.STATUS_ORDER.index(self.status)
         except ValueError:
             return -1
+
+    def can_transition_to(self, new_status: str) -> bool:
+        """Whether moving from the current status to new_status is a legal pipeline move."""
+        if new_status == self.status:
+            return True  # no-op, e.g. a notes-only update that resends the same status
+        return new_status in self.VALID_TRANSITIONS.get(self.status, set())
 
 
 class ApplicationStatusHistory(models.Model):

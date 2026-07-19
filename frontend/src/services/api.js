@@ -114,6 +114,7 @@ export const authAPI = {
   me:        ()      => api.get('/auth/me/'),
   updateMe:  (data)  => api.patch('/auth/me/', data),
   changePassword: (data) => api.post('/auth/me/change-password/', data),
+  deleteAccount: (password) => api.post('/auth/me/delete/', { password }),
 
   verifyEmail:        (token) => api.get(`/auth/verify-email/${token}/`),
   resendVerification: ()      => api.post('/auth/verify-email/resend/'),
@@ -137,6 +138,7 @@ export const authAPI = {
     headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {},
   }),
   getPublicCandidate: (userId) => api.get(`/auth/candidates/${userId}/`),
+  searchCandidates:   (params) => api.get('/auth/candidates/search/', { params }),
   getPublicRecruiter: (userId) => api.get(`/auth/recruiters/${userId}/`),
 }
 
@@ -164,6 +166,8 @@ export const applicationsAPI = {
   candidateStats:      ()       => api.get('/applications/my/stats/'),
   jobApplications:     (jobId, params) => api.get(`/applications/job/${jobId}/`, { params }),
   updateStatus:        (id, data)      => api.patch(`/applications/${id}/status/`, data),
+  bulkUpdateStatus:    (applicationIds, statusValue, note) =>
+    api.patch('/applications/bulk-update/', { application_ids: applicationIds, status: statusValue, note }),
   recruiterStats:      ()       => api.get('/applications/recruiter/stats/'),
 }
 

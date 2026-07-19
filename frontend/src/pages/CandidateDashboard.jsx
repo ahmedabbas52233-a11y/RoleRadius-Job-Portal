@@ -3,19 +3,66 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { applicationsAPI, matchingAPI, jobsAPI } from '../services/api'
 import JobCard from '../components/JobCard'
-import { Briefcase, FileText, Zap, Star, Clock, CheckCircle, XCircle, BookmarkCheck, ArrowRight, User } from 'lucide-react'
+import MatchBreakdown from '../components/MatchBreakdown'
+import StatusHistoryTimeline from '../components/StatusHistoryTimeline'
+import { Briefcase, FileText, Zap, Star, Clock, CheckCircle, XCircle, BookmarkCheck, ArrowRight, User, ChevronRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 const STATUS_META = {
-  pending:     {color:'#6b7280',bg:'#f3f4f6',label:'Pending',       Icon:Clock},
-  reviewing:   {color:'#1d4ed8',bg:'#dbeafe',label:'Reviewing',     Icon:FileText},
-  shortlisted: {color:'#7c3aed',bg:'#ede9fe',label:'Shortlisted',   Icon:Star},
-  interview:   {color:'#c2410c',bg:'#ffedd5',label:'Interview',      Icon:Briefcase},
-  offered:     {color:'#065f46',bg:'#d1fae5',label:'Offered 🎉',    Icon:CheckCircle},
-  rejected:    {color:'#991b1b',bg:'#fee2e2',label:'Rejected',       Icon:XCircle},
-  withdrawn:   {color:'#4b5563',bg:'#f3f4f6',label:'Withdrawn',     Icon:XCircle},
+  pending:        {color:'#6b7280',bg:'#f3f4f6',label:'Pending',        Icon:Clock},
+  reviewing:      {color:'#1d4ed8',bg:'#dbeafe',label:'Reviewing',      Icon:FileText},
+  shortlisted:    {color:'#7c3aed',bg:'#ede9fe',label:'Shortlisted',    Icon:Star},
+  interview:      {color:'#c2410c',bg:'#ffedd5',label:'Interview',      Icon:Briefcase},
+  offered:        {color:'#065f46',bg:'#d1fae5',label:'Offered 🎉',     Icon:CheckCircle},
+  hired:          {color:'#166534',bg:'#bbf7d0',label:'Hired ✅',       Icon:CheckCircle},
+  offer_declined: {color:'#92400e',bg:'#fef3c7',label:'Offer Declined', Icon:XCircle},
+  rejected:       {color:'#991b1b',bg:'#fee2e2',label:'Rejected',       Icon:XCircle},
+  withdrawn:      {color:'#4b5563',bg:'#f3f4f6',label:'Withdrawn',      Icon:XCircle},
 }
 const TABS = ['Applications','AI Matches','Saved Jobs']
+
+function ApplicationRow({ app }) {
+  const [open, setOpen] = useState(false)
+  const meta = STATUS_META[app.status] || STATUS_META.pending
+  const { Icon } = meta
+  const hasDetail = app.match_breakdown || app.history?.length > 0
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:meta.bg}}>
+          <Icon className="w-5 h-5" style={{color:meta.color}} aria-hidden="true"/>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold truncate" style={{color:'var(--text-1)'}}>{app.job?.title}</p>
+          <p className="text-sm truncate" style={{color:'var(--text-3)'}}>{app.job?.company_name}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className="badge text-xs" style={{background:meta.bg,color:meta.color}}>{meta.label}</span>
+          {app.match_score!=null && (
+            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg" style={{background:'var(--primary-light)',color:'var(--primary)'}}>
+              <Zap className="w-3 h-3" aria-hidden="true"/>{Math.round(app.match_score)}%
+            </span>
+          )}
+          <span className="text-xs" style={{color:'var(--text-3)'}}>{formatDistanceToNow(new Date(app.applied_at),{addSuffix:true})}</span>
+        </div>
+      </div>
+      {hasDetail && (
+        <>
+          <button onClick={()=>setOpen(!open)} className="flex items-center gap-1 text-xs font-semibold mt-3 transition-colors" style={{color:'var(--primary)'}} aria-expanded={open}>
+            {open ? 'Hide details' : 'Show match details & history'} <ChevronRight className={`w-3.5 h-3.5 transition-transform ${open?'rotate-90':''}`} aria-hidden="true"/>
+          </button>
+          {open && (
+            <div className="mt-3 pt-3 border-t space-y-3 animate-fade-up" style={{borderColor:'var(--border)'}}>
+              <MatchBreakdown breakdown={app.match_breakdown} />
+              <StatusHistoryTimeline history={app.history} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 export default function CandidateDashboard() {
   const { user, profile } = useAuth()
@@ -67,7 +114,7 @@ export default function CandidateDashboard() {
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
-            {STAT_CARDS.map(({label,v,color,bg})=>(
+            {STAT_CARDS.map(({label,v,color})=>(
               <div key={label} className="card p-4" style={{borderColor:'transparent'}}>
                 <p className="text-2xl font-extrabold mb-0.5" style={{color}}>{v}</p>
                 <p className="text-xs font-semibold" style={{color:'var(--text-2)'}}>{label}</p>
@@ -99,30 +146,7 @@ export default function CandidateDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {apps.map(app=>{
-                const meta = STATUS_META[app.status]||STATUS_META.pending
-                const {Icon} = meta
-                return (
-                  <div key={app.id} className="card p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:meta.bg}}>
-                      <Icon className="w-5 h-5" style={{color:meta.color}} aria-hidden="true"/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate" style={{color:'var(--text-1)'}}>{app.job?.title}</p>
-                      <p className="text-sm truncate" style={{color:'var(--text-3)'}}>{app.job?.company_name}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className="badge text-xs" style={{background:meta.bg,color:meta.color}}>{meta.label}</span>
-                      {app.match_score!=null && (
-                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg" style={{background:'var(--primary-light)',color:'var(--primary)'}}>
-                          <Zap className="w-3 h-3" aria-hidden="true"/>{Math.round(app.match_score)}%
-                        </span>
-                      )}
-                      <span className="text-xs" style={{color:'var(--text-3)'}}>{formatDistanceToNow(new Date(app.applied_at),{addSuffix:true})}</span>
-                    </div>
-                  </div>
-                )
-              })}
+              {apps.map(app => <ApplicationRow key={app.id} app={app} />)}
             </div>
           )
         )}

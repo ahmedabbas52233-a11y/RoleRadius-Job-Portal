@@ -23,20 +23,39 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
         return data
 
 
+def _get_match_breakdown(candidate, job):
+    """
+    Shared helper: live-recompute the explainable match breakdown for one
+    application. This is a cheap 2-document TF-IDF fit (see
+    matching/engine.py docstring) — fine to run per-row on a paginated
+    list, but if PAGE_SIZE is ever raised substantially this should move
+    to a prefetched/batched computation instead of one fit per row.
+    """
+    try:
+        from matching.engine import compute_match_breakdown
+        return compute_match_breakdown(candidate, job)
+    except Exception:
+        return None
+
+
 class ApplicationCandidateSerializer(serializers.ModelSerializer):
     """Serializer for candidate viewing their own applications."""
     job = JobListSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     history = ApplicationStatusHistorySerializer(many=True, read_only=True)
+    match_breakdown = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = [
             'id', 'job', 'status', 'status_display', 'status_step',
-            'cover_letter', 'match_score', 'applied_at', 'updated_at',
+            'cover_letter', 'match_score', 'match_breakdown', 'applied_at', 'updated_at',
             'interview_date', 'history'
         ]
         read_only_fields = ['status', 'match_score', 'applied_at', 'updated_at']
+
+    def get_match_breakdown(self, obj):
+        return _get_match_breakdown(obj.candidate, obj.job)
 
 
 class ApplicationRecruiterSerializer(serializers.ModelSerializer):
@@ -46,12 +65,13 @@ class ApplicationRecruiterSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     history = ApplicationStatusHistorySerializer(many=True, read_only=True)
     cv_download_url = serializers.SerializerMethodField()
+    match_breakdown = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = [
             'id', 'candidate', 'candidate_profile', 'status', 'status_display',
-            'status_step', 'cover_letter', 'match_score', 'recruiter_notes',
+            'status_step', 'cover_letter', 'match_score', 'match_breakdown', 'recruiter_notes',
             'rejection_reason', 'interview_date', 'applied_at', 'updated_at',
             'history', 'cv_download_url'
         ]
@@ -62,9 +82,15 @@ class ApplicationRecruiterSerializer(serializers.ModelSerializer):
             return {
                 'id': str(profile.id),
                 'headline': profile.headline,
+                'bio': profile.bio,
                 'location': profile.location,
                 'skills': profile.skills,
                 'experience_years': profile.experience_years,
+                'education': profile.education,
+                'experience': profile.experience,
+                'linkedin': profile.linkedin,
+                'github': profile.github,
+                'website': profile.website,
                 'avatar_url': profile.avatar.url if profile.avatar else None,
             }
         except Exception:
@@ -78,6 +104,9 @@ class ApplicationRecruiterSerializer(serializers.ModelSerializer):
             return cv.url if cv else None
         except Exception:
             return None
+
+    def get_match_breakdown(self, obj):
+        return _get_match_breakdown(obj.candidate, obj.job)
 
 
 class ApplicationStatusUpdateSerializer(serializers.ModelSerializer):

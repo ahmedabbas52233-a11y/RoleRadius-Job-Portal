@@ -24,6 +24,7 @@ python-magic==0.4.27; sys_platform != "win32"
 
 # ML matching
 scikit-learn==1.4.2
+scipy==1.17.1
 numpy==1.26.4
 
 # Caching — django-redis only activates if REDIS_URL env var is set,

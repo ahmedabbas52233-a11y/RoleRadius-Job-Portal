@@ -1,92 +1,206 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { applicationsAPI, jobsAPI } from '../services/api'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { Briefcase, Users, Star, Award, PlusCircle, Eye, EyeOff, Trash2, Pencil, Zap, ChevronRight, Building2 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import MatchBreakdown from '../components/MatchBreakdown'
+import StatusHistoryTimeline from '../components/StatusHistoryTimeline'
+import {
+  Briefcase, Users, Star, Award, PlusCircle, Eye, EyeOff, Trash2, Pencil, Zap,
+  ChevronRight, Building2, FileText, ExternalLink, CheckSquare, Square,
+} from 'lucide-react'
+import { formatDistanceToNow, format } from 'date-fns'
 import toast from 'react-hot-toast'
 
 const STATUS_META = {
-  pending:     {bg:'#f3f4f6',color:'#374151',label:'Pending'},
-  reviewing:   {bg:'#dbeafe',color:'#1e40af',label:'Reviewing'},
-  shortlisted: {bg:'#ede9fe',color:'#6d28d9',label:'Shortlisted'},
-  interview:   {bg:'#ffedd5',color:'#c2410c',label:'Interview'},
-  offered:     {bg:'#d1fae5',color:'#065f46',label:'Offered 🎉'},
-  rejected:    {bg:'#fee2e2',color:'#991b1b',label:'Rejected'},
-  withdrawn:   {bg:'#f3f4f6',color:'#4b5563',label:'Withdrawn'},
+  pending:        { bg: '#f3f4f6', color: '#374151', label: 'Pending' },
+  reviewing:      { bg: '#dbeafe', color: '#1e40af', label: 'Reviewing' },
+  shortlisted:    { bg: '#ede9fe', color: '#6d28d9', label: 'Shortlisted' },
+  interview:      { bg: '#ffedd5', color: '#c2410c', label: 'Interview' },
+  offered:        { bg: '#d1fae5', color: '#065f46', label: 'Offered 🎉' },
+  hired:          { bg: '#bbf7d0', color: '#166534', label: 'Hired ✅' },
+  offer_declined: { bg: '#fef3c7', color: '#92400e', label: 'Offer Declined' },
+  rejected:       { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
+  withdrawn:      { bg: '#f3f4f6', color: '#4b5563', label: 'Withdrawn' },
 }
-const NEXT_STATUSES = ['reviewing','shortlisted','interview','offered','rejected']
 
-function ApplicantCard({ app, onUpdate }) {
-  const [open, setOpen]       = useState(false)
+// Mirrors Application.VALID_TRANSITIONS on the backend (which is the source
+// of truth and re-validates regardless). Kept in sync here purely so the UI
+// only ever shows buttons that will actually succeed.
+const ACTIVE_FORWARD = ['reviewing', 'shortlisted', 'interview', 'offered', 'rejected']
+const TRANSITIONS = {
+  pending: ACTIVE_FORWARD,
+  reviewing: ACTIVE_FORWARD,
+  shortlisted: ACTIVE_FORWARD,
+  interview: ACTIVE_FORWARD,
+  offered: ['hired', 'offer_declined', 'rejected'],
+  hired: [],
+  offer_declined: [],
+  rejected: [],
+  withdrawn: [],
+}
+
+function ApplicantCard({ app, onUpdate, selected, onToggleSelect }) {
+  const [open, setOpen] = useState(false)
   const [updating, setUpdating] = useState(false)
-
-  const moveTo = async (status) => {
-    setUpdating(true)
-    try {
-      const { data } = await applicationsAPI.updateStatus(app.id, { status })
-      onUpdate(app.id, data)
-      toast.success(`Moved to ${status}`)
-    } catch { toast.error('Could not update') }
-    finally { setUpdating(false) }
-  }
+  const [pendingMove, setPendingMove] = useState(null) // 'rejected' | 'interview' | null
+  const [reasonText, setReasonText] = useState('')
+  const [interviewDate, setInterviewDate] = useState('')
+  const [notes, setNotes] = useState(app.recruiter_notes || '')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   const meta = STATUS_META[app.status] || STATUS_META.pending
+  const availableMoves = TRANSITIONS[app.status] || []
+
+  const applyMove = async (status, extra = {}) => {
+    setUpdating(true)
+    try {
+      const { data } = await applicationsAPI.updateStatus(app.id, { status, ...extra })
+      onUpdate(app.id, data)
+      toast.success(`Moved to ${STATUS_META[status]?.label || status}`)
+      setPendingMove(null); setReasonText(''); setInterviewDate('')
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Could not update')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleMoveClick = (status) => {
+    if (status === 'rejected') { setPendingMove('rejected'); return }
+    if (status === 'interview') { setPendingMove('interview'); return }
+    applyMove(status)
+  }
+
+  const saveNotes = async () => {
+    setSavingNotes(true)
+    try {
+      const { data } = await applicationsAPI.updateStatus(app.id, { recruiter_notes: notes })
+      onUpdate(app.id, data)
+      toast.success('Notes saved')
+    } catch { toast.error('Could not save notes') }
+    finally { setSavingNotes(false) }
+  }
 
   return (
     <div className="card p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm text-white" style={{background:'linear-gradient(135deg,#6366f1,#a855f7)'}}>
+        <div className="flex items-start gap-3 min-w-0">
+          <button onClick={() => onToggleSelect(app.id)} className="mt-1 flex-shrink-0" aria-label={selected ? 'Deselect applicant' : 'Select applicant'}>
+            {selected ? <CheckSquare className="w-4 h-4" style={{ color: 'var(--primary)' }} aria-hidden="true" /> : <Square className="w-4 h-4" style={{ color: 'var(--text-3)' }} aria-hidden="true" />}
+          </button>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm text-white" style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}>
             {app.candidate?.full_name?.[0]?.toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm truncate" style={{color:'var(--text-1)'}}>{app.candidate?.full_name}</p>
-            <p className="text-xs truncate" style={{color:'var(--text-3)'}}>{app.candidate_profile?.headline||'No headline'}</p>
+            <Link to={`/recruiter/candidates/${app.candidate?.id}`} className="font-semibold text-sm truncate hover:underline block" style={{ color: 'var(--text-1)' }}>
+              {app.candidate?.full_name}
+            </Link>
+            <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>{app.candidate_profile?.headline || 'No headline'}</p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <span className="badge text-xs" style={{background:meta.bg,color:meta.color}}>{meta.label}</span>
-          {app.match_score!=null && (
-            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg" style={{background:'var(--primary-light)',color:'var(--primary)'}}>
-              <Zap className="w-3 h-3" aria-hidden="true"/>{Math.round(app.match_score)}%
+          <span className="badge text-xs" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+          {app.match_score != null && (
+            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
+              <Zap className="w-3 h-3" aria-hidden="true" />{Math.round(app.match_score)}%
             </span>
           )}
         </div>
       </div>
+
       {app.candidate_profile?.skills?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {app.candidate_profile.skills.slice(0,4).map(s=>(
-            <span key={s} className="px-2 py-0.5 rounded-md text-xs" style={{background:'var(--surface-2)',color:'var(--text-2)',border:'1px solid var(--border)'}}>{s}</span>
+          {app.candidate_profile.skills.slice(0, 4).map((s) => (
+            <span key={s} className="px-2 py-0.5 rounded-md text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>{s}</span>
           ))}
         </div>
       )}
+
       <div className="flex items-center justify-between mt-3">
-        <span className="text-xs" style={{color:'var(--text-3)'}}>{formatDistanceToNow(new Date(app.applied_at),{addSuffix:true})}</span>
-        <button onClick={()=>setOpen(!open)} className="flex items-center gap-1 text-xs font-semibold transition-colors" style={{color:'var(--primary)'}} aria-expanded={open}>
-          Actions <ChevronRight className={`w-3.5 h-3.5 transition-transform ${open?'rotate-90':''}`} aria-hidden="true"/>
+        <span className="text-xs" style={{ color: 'var(--text-3)' }}>{formatDistanceToNow(new Date(app.applied_at), { addSuffix: true })}</span>
+        <button onClick={() => setOpen(!open)} className="flex items-center gap-1 text-xs font-semibold transition-colors" style={{ color: 'var(--primary)' }} aria-expanded={open}>
+          Details <ChevronRight className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden="true" />
         </button>
       </div>
+
       {open && (
-        <div className="mt-3 pt-3 border-t animate-fade-up" style={{borderColor:'var(--border)'}}>
-          <p className="text-xs font-semibold mb-2" style={{color:'var(--text-2)'}}>Move to:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {NEXT_STATUSES.filter(s=>s!==app.status).map(s=>{
-              const m=STATUS_META[s]
-              return (
-                <button key={s} onClick={()=>moveTo(s)} disabled={updating} className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all disabled:opacity-50" style={{background:m.bg,color:m.color}}>
-                  {m.label}
-                </button>
-              )
-            })}
+        <div className="mt-3 pt-3 border-t animate-fade-up" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Link to={`/recruiter/candidates/${app.candidate?.id}`} className="btn-secondary text-xs px-3 py-1.5">
+              View full profile <ExternalLink className="w-3 h-3" aria-hidden="true" />
+            </Link>
+            {app.cv_download_url && (
+              <a href={app.cv_download_url} target="_blank" rel="noopener noreferrer" className="btn-secondary text-xs px-3 py-1.5">
+                <FileText className="w-3 h-3" aria-hidden="true" /> View CV
+              </a>
+            )}
           </div>
+
+          <div className="mt-3"><MatchBreakdown breakdown={app.match_breakdown} /></div>
+
           {app.cover_letter && (
             <div className="mt-3">
-              <p className="text-xs font-semibold mb-1" style={{color:'var(--text-2)'}}>Cover letter:</p>
-              <p className="text-xs rounded-xl p-3 line-clamp-3" style={{background:'var(--surface-2)',color:'var(--text-2)'}}>{app.cover_letter}</p>
+              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-2)' }}>Cover letter:</p>
+              <p className="text-xs rounded-xl p-3" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>{app.cover_letter}</p>
             </div>
           )}
+
+          <div className="mt-3">
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-2)' }}>Recruiter notes (private):</p>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="input text-xs h-16 resize-none" placeholder="Notes only you and your team can see…" />
+            {notes !== (app.recruiter_notes || '') && (
+              <button onClick={saveNotes} disabled={savingNotes} className="btn-secondary text-xs px-3 py-1.5 mt-1.5">
+                {savingNotes ? 'Saving…' : 'Save notes'}
+              </button>
+            )}
+          </div>
+
+          {availableMoves.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>Move to:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {availableMoves.map((s) => {
+                  const m = STATUS_META[s]
+                  return (
+                    <button key={s} onClick={() => handleMoveClick(s)} disabled={updating} className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all disabled:opacity-50" style={{ background: m.bg, color: m.color }}>
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {pendingMove === 'rejected' && (
+            <div className="mt-3 p-3 rounded-xl animate-fade-up" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#991b1b' }}>Reason for rejection (optional, kept private):</label>
+              <textarea value={reasonText} onChange={(e) => setReasonText(e.target.value)} className="input text-xs h-16 resize-none" placeholder="e.g. Not enough backend experience for this role" />
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => applyMove('rejected', { rejection_reason: reasonText })} disabled={updating} className="btn-danger text-xs px-3 py-1.5">Confirm Reject</button>
+                <button onClick={() => { setPendingMove(null); setReasonText('') }} className="btn-ghost text-xs px-3 py-1.5">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {pendingMove === 'interview' && (
+            <div className="mt-3 p-3 rounded-xl animate-fade-up" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#c2410c' }}>Interview date &amp; time:</label>
+              <input type="datetime-local" value={interviewDate} onChange={(e) => setInterviewDate(e.target.value)} className="input text-xs" />
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => applyMove('interview', interviewDate ? { interview_date: interviewDate } : {})} disabled={updating} className="btn-primary text-xs px-3 py-1.5">Confirm Interview</button>
+                <button onClick={() => { setPendingMove(null); setInterviewDate('') }} className="btn-ghost text-xs px-3 py-1.5">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {app.interview_date && app.status === 'interview' && (
+            <p className="text-xs mt-2" style={{ color: 'var(--text-3)' }}>
+              Scheduled for {format(new Date(app.interview_date), 'PPp')}
+            </p>
+          )}
+
+          <div className="mt-3"><StatusHistoryTimeline history={app.history} /></div>
         </div>
       )}
     </div>
@@ -155,8 +269,28 @@ function JobRow({ job, isSelected, onSelect, onToggle, onDelete }) {
   )
 }
 
+function BulkActionBar({ count, onMove, onClear, acting }) {
+  const moveOptions = ['reviewing', 'shortlisted', 'interview', 'offered', 'rejected']
+  return (
+    <div className="card p-3 mb-3 flex items-center justify-between gap-3 flex-wrap animate-fade-up" style={{ borderColor: 'var(--primary)' }}>
+      <p className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{count} selected</p>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {moveOptions.map((s) => {
+          const m = STATUS_META[s]
+          return (
+            <button key={s} onClick={() => onMove(s)} disabled={acting} className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all disabled:opacity-50" style={{ background: m.bg, color: m.color }}>
+              Move to {m.label}
+            </button>
+          )
+        })}
+        <button onClick={onClear} className="btn-ghost text-xs px-2 py-1.5">Clear</button>
+      </div>
+    </div>
+  )
+}
+
 export default function RecruiterDashboard() {
-  const { user, profile } = useAuth()
+  const { profile } = useAuth()
   const [stats, setStats]               = useState(null)
   const [jobs, setJobs]                 = useState([])
   const [selectedJob, setSelectedJob]   = useState(null)
@@ -164,6 +298,8 @@ export default function RecruiterDashboard() {
   const [statusFilter, setStatusFilter] = useState('')
   const [loadingApps, setLoadingApps]   = useState(false)
   const [loading, setLoading]           = useState(true)
+  const [selectedIds, setSelectedIds]   = useState(new Set())
+  const [bulkActing, setBulkActing]     = useState(false)
 
   useEffect(()=>{
     Promise.allSettled([applicationsAPI.recruiterStats(), jobsAPI.myJobs()])
@@ -180,6 +316,7 @@ export default function RecruiterDashboard() {
   useEffect(()=>{
     if (!selectedJob) return
     setLoadingApps(true)
+    setSelectedIds(new Set())
     applicationsAPI.jobApplications(selectedJob.id, statusFilter?{status:statusFilter}:{})
       .then(({data})=>setApplications(data.results||[]))
       .catch(()=>setApplications([]))
@@ -190,6 +327,38 @@ export default function RecruiterDashboard() {
   const handleJobDelete = id => {
     setJobs(prev=>{ const n=prev.filter(j=>j.id!==id); if(selectedJob?.id===id)setSelectedJob(n[0]||null); return n })
   }
+
+  const toggleSelect = (id) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const clearSelection = () => setSelectedIds(new Set())
+
+  const handleBulkMove = async (status) => {
+    setBulkActing(true)
+    try {
+      const ids = Array.from(selectedIds)
+      const { data } = await applicationsAPI.bulkUpdateStatus(ids, status)
+      const updatedSet = new Set(data.updated || [])
+      setApplications(prev => prev.map(a => updatedSet.has(a.id) ? { ...a, status } : a))
+      if (data.skipped?.length) {
+        toast.error(`${data.updated.length} moved, ${data.skipped.length} couldn't transition from their current status`)
+      } else {
+        toast.success(`${data.updated.length} application(s) moved to ${STATUS_META[status]?.label || status}`)
+      }
+      clearSelection()
+    } catch {
+      toast.error('Bulk update failed')
+    } finally {
+      setBulkActing(false)
+    }
+  }
+
+  const visibleSelectedCount = useMemo(
+    () => applications.filter(a => selectedIds.has(a.id)).length,
+    [applications, selectedIds]
+  )
 
   const STATS = [
     {label:'Active Jobs',  v:stats?.active_jobs??'—',                      color:'#6366f1',bg:'#eef2ff', Icon:Briefcase},
@@ -212,9 +381,14 @@ export default function RecruiterDashboard() {
                 <h1 className="font-extrabold text-white" style={{fontSize:'clamp(1.25rem,3vw,1.75rem)',letterSpacing:'-.02em'}}>Recruiter Dashboard</h1>
               </div>
             </div>
-            <Link to="/recruiter/post-job" className="btn-primary text-sm" style={{background:'rgba(255,255,255,.15)',boxShadow:'none'}}>
-              <PlusCircle className="w-4 h-4" aria-hidden="true"/> Post a Job
-            </Link>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link to="/recruiter/talent" className="btn-secondary text-sm" style={{background:'rgba(255,255,255,.1)',color:'white',borderColor:'rgba(255,255,255,.25)'}}>
+                <Users className="w-4 h-4" aria-hidden="true"/> Find Talent
+              </Link>
+              <Link to="/recruiter/post-job" className="btn-primary text-sm" style={{background:'rgba(255,255,255,.15)',boxShadow:'none'}}>
+                <PlusCircle className="w-4 h-4" aria-hidden="true"/> Post a Job
+              </Link>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
             {STATS.map(({label,v,color,bg,Icon})=>(
@@ -266,7 +440,7 @@ export default function RecruiterDashboard() {
                       <p className="text-xs" style={{color:'var(--text-3)'}}>{applications.length} applicants</p>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {['','reviewing','shortlisted','interview','offered'].map(s=>(
+                      {['','reviewing','shortlisted','interview','offered','hired'].map(s=>(
                         <button key={s} onClick={()=>setStatusFilter(s)} className="text-xs px-2.5 py-1 rounded-lg font-semibold transition-all"
                           style={statusFilter===s ? {background:'var(--primary)',color:'white'} : {background:'var(--surface)',color:'var(--text-2)',border:'1px solid var(--border)'}}>
                           {s===''?'All':(STATUS_META[s]?.label||s)}
@@ -274,6 +448,28 @@ export default function RecruiterDashboard() {
                       ))}
                     </div>
                   </div>
+
+                  {visibleSelectedCount > 0 && (
+                    <BulkActionBar count={visibleSelectedCount} onMove={handleBulkMove} onClear={clearSelection} acting={bulkActing} />
+                  )}
+
+                  {applications.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const allSelected = applications.every(a => selectedIds.has(a.id))
+                        setSelectedIds(allSelected ? new Set() : new Set(applications.map(a => a.id)))
+                      }}
+                      className="flex items-center gap-1.5 text-xs font-semibold mb-2"
+                      style={{ color: 'var(--text-3)' }}
+                    >
+                      {applications.every(a => selectedIds.has(a.id)) ? (
+                        <><CheckSquare className="w-3.5 h-3.5" style={{ color: 'var(--primary)' }} aria-hidden="true" /> Deselect all</>
+                      ) : (
+                        <><Square className="w-3.5 h-3.5" aria-hidden="true" /> Select all {applications.length} visible</>
+                      )}
+                    </button>
+                  )}
+
                   {loadingApps ? (
                     <div className="space-y-3">{Array(3).fill(0).map((_,i)=><div key={i} className="skeleton h-24 rounded-2xl" aria-hidden="true"/>)}</div>
                   ) : applications.length===0 ? (
@@ -282,7 +478,12 @@ export default function RecruiterDashboard() {
                       <p style={{color:'var(--text-2)'}}>No {statusFilter||''} applicants yet</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">{applications.map(app=><ApplicantCard key={app.id} app={app} onUpdate={handleAppUpdate}/>)}</div>
+                    <div className="space-y-3">
+                      {applications.map(app=>
+                        <ApplicantCard key={app.id} app={app} onUpdate={handleAppUpdate}
+                          selected={selectedIds.has(app.id)} onToggleSelect={toggleSelect} />
+                      )}
+                    </div>
                   )}
                 </>
               ) : (
