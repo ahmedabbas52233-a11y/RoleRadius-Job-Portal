@@ -35,18 +35,14 @@ signal-driven caching layer for the matching corpus.
 
 ## 📸 Screenshots
 
-> **Note:** Replace the placeholders below with real screenshots once
-> captured — drop image files into `docs/screenshots/` using the same
-> filenames referenced here, or update the paths to match whatever you save.
-
 | | |
 |---|---|
 | **Home** | **Job Listings** |
-| `[ 📸 screenshot placeholder — docs/screenshots/home.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/job-listings.png ]` |
+| ![Home page](docs/screenshots/Home-Page.png) | ![Job Listings](docs/screenshots/Jobs-Listings.png) |
 | **Job Detail** | **AI-Matched Jobs** |
-| `[ 📸 screenshot placeholder — docs/screenshots/job-detail.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/ai-matches.png ]` |
+| ![Job Details](docs/screenshots/Job-Details.png) | ![AI Matches](docs/screenshots/AI-Matched-Jobs.png) |
 | **Candidate Dashboard** | **Recruiter Dashboard** |
-| `[ 📸 screenshot placeholder — docs/screenshots/candidate-dashboard.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/recruiter-dashboard.png ]` |
+| ![Candidates Dashboard](docs/screenshots/Dashboard-1.png) | ![Recruiter Dashboard](docs/screenshots/Recruiter-Dashboard.png) |
 | **Interview Rounds** | **Talent Search** |
 | `[ 📸 screenshot placeholder — docs/screenshots/interview-rounds.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/talent-search.png ]` |
 | **Team / Company Settings** | **Profile / CV** |
