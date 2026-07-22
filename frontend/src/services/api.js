@@ -33,6 +33,28 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// ── In-flight GET request dedup ────────────────────────────────────────────────
+// If the same GET (same URL + same params) is already in flight, return the
+// existing promise instead of firing a second identical network request.
+// This only collapses concurrent duplicate calls — once a response lands the
+// entry is cleared immediately, so nothing is ever served stale. It changes
+// *when* a request resolves, never *what* it resolves to. Wraps api.get
+// directly so every existing *API.xxx() call below benefits with zero changes.
+const inFlightGetRequests = new Map()
+const _rawGet = api.get.bind(api)
+
+api.get = (url, config = {}) => {
+  const key = `${url}?${JSON.stringify(config.params || {})}`
+  const pending = inFlightGetRequests.get(key)
+  if (pending) return pending
+
+  const promise = _rawGet(url, config).finally(() => {
+    inFlightGetRequests.delete(key)
+  })
+  inFlightGetRequests.set(key, promise)
+  return promise
+}
+
 // Auto-refresh on 401 — but NEVER redirect from here
 let isRefreshing = false
 let failedQueue  = []
@@ -92,6 +114,7 @@ export const authAPI = {
   me:        ()      => api.get('/auth/me/'),
   updateMe:  (data)  => api.patch('/auth/me/', data),
   changePassword: (data) => api.post('/auth/me/change-password/', data),
+  deleteAccount: (password) => api.post('/auth/me/delete/', { password }),
 
   verifyEmail:        (token) => api.get(`/auth/verify-email/${token}/`),
   resendVerification: ()      => api.post('/auth/verify-email/resend/'),
@@ -115,6 +138,7 @@ export const authAPI = {
     headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {},
   }),
   getPublicCandidate: (userId) => api.get(`/auth/candidates/${userId}/`),
+  searchCandidates:   (params) => api.get('/auth/candidates/search/', { params }),
   getPublicRecruiter: (userId) => api.get(`/auth/recruiters/${userId}/`),
 }
 
@@ -142,7 +166,12 @@ export const applicationsAPI = {
   candidateStats:      ()       => api.get('/applications/my/stats/'),
   jobApplications:     (jobId, params) => api.get(`/applications/job/${jobId}/`, { params }),
   updateStatus:        (id, data)      => api.patch(`/applications/${id}/status/`, data),
+  bulkUpdateStatus:    (applicationIds, statusValue, note) =>
+    api.patch('/applications/bulk-update/', { application_ids: applicationIds, status: statusValue, note }),
   recruiterStats:      ()       => api.get('/applications/recruiter/stats/'),
+  createInterviewRound: (applicationId, data) => api.post(`/applications/${applicationId}/rounds/`, data),
+  updateInterviewRound: (applicationId, roundId, data) => api.patch(`/applications/${applicationId}/rounds/${roundId}/`, data),
+  deleteInterviewRound: (applicationId, roundId) => api.delete(`/applications/${applicationId}/rounds/${roundId}/`),
 }
 
 // ── Matching ──────────────────────────────────────────────────────────────────

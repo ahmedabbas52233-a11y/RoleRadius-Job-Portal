@@ -8,11 +8,13 @@ from django.dispatch import receiver
 logger = logging.getLogger('roleradius')
 
 STATUS_EMAIL_MAP = {
-    'reviewing':   ('Your application is under review', 'Good news — a recruiter is reviewing your application for {job}.'),
-    'shortlisted': ('You have been shortlisted! 🎉',   'Congratulations! You have been shortlisted for {job}. Expect to hear more soon.'),
-    'interview':   ('Interview invitation for {job}',  'You have been invited to interview for {job}. Log in to see the details.'),
-    'offered':     ('You have received an offer! 🏆',  'Amazing news — you have received a job offer for {job}. Log in to review it.'),
-    'rejected':    ('Update on your application',      'Thank you for your interest in {job}. Unfortunately the team has decided not to move forward at this time.'),
+    'reviewing':       ('Your application is under review', 'Good news — a recruiter is reviewing your application for {job}.'),
+    'shortlisted':     ('You have been shortlisted! 🎉',   'Congratulations! You have been shortlisted for {job}. Expect to hear more soon.'),
+    'interview':       ('Interview invitation for {job}',  'You have been invited to interview for {job}. Log in to see the details.'),
+    'offered':         ('You have received an offer! 🏆',  'Amazing news — you have received a job offer for {job}. Log in to review it.'),
+    'hired':           ('Welcome aboard! 🎊',              'Congratulations — you have been confirmed as hired for {job}! The team will be in touch with next steps.'),
+    'offer_declined':  ('Offer declined — confirmed',      'This confirms the offer for {job} has been recorded as declined. We wish you the best in your search.'),
+    'rejected':        ('Update on your application',      'Thank you for your interest in {job}. Unfortunately the team has decided not to move forward at this time.'),
 }
 
 
@@ -37,7 +39,7 @@ def notify_candidate_on_status_change(sender, instance, created: bool, **kwargs)
             message=(
                 f'Hi {candidate.full_name},\n\n'
                 + body_tpl.format(job=job_title)
-                + f'\n\nView your applications: '
+                + '\n\nView your applications: '
                 + f'{getattr(settings, "FRONTEND_URL", "http://localhost:5173")}/dashboard\n\n'
                 + '— The RoleRadius Team'
             ),

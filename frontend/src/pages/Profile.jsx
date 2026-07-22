@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authAPI } from '../services/api'
-import { Upload, Plus, X, Save, CheckCircle } from 'lucide-react'
+import { Upload, Plus, X, Save, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const SKILL_SUGGESTIONS = ['Python','JavaScript','React','Django','TypeScript','Node.js','PostgreSQL','Docker','AWS','Machine Learning','SQL','Git','Figma','Product Management','Marketing','Data Analysis']
 
 export default function Profile() {
-  const { user, profile, refreshProfile, isCandidate, isRecruiter } = useAuth()
+  const { user, profile, refreshProfile, isCandidate, isRecruiter, clearSession } = useAuth()
+  const navigate = useNavigate()
   const [form, setForm]       = useState({})
   const [skills, setSkills]   = useState([])
   const [skillInput, setSkillInput] = useState('')
@@ -16,6 +18,10 @@ export default function Profile() {
   const [cvFile, setCvFile]   = useState(null)
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [deleteOpen, setDeleteOpen]       = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleting, setDeleting]           = useState(false)
+  const [deleteError, setDeleteError]     = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -49,6 +55,20 @@ export default function Profile() {
     try { await authAPI.uploadCV(cvFile); toast.success('CV uploaded and indexed for AI matching!'); setCvFile(null); refreshProfile() }
     catch (err) { toast.error(err.response?.data?.detail || 'Upload failed') }
     finally { setUploading(false) }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true); setDeleteError('')
+    try {
+      await authAPI.deleteAccount(deletePassword)
+      toast.success('Account deleted. We\u2019re sorry to see you go.')
+      clearSession()
+      navigate('/')
+    } catch (err) {
+      setDeleteError(err.response?.data?.password || 'Could not delete account.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (loading) return (
@@ -205,7 +225,53 @@ export default function Profile() {
             )}
           </button>
         </form>
+
+        <div className="card p-5 mt-8" style={{ borderColor: '#fecaca' }}>
+          <h2 className="flex items-center gap-2 font-semibold mb-1" style={{ color: '#991b1b' }}>
+            <AlertTriangle className="w-4 h-4" aria-hidden="true" /> Danger Zone
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-2)' }}>
+            Permanently delete your account and all associated data.
+            {isRecruiter && ' This will also delete every job you\u2019ve posted and all applications to them.'}
+            {' '}This cannot be undone.
+          </p>
+          <button type="button" onClick={() => setDeleteOpen(true)} className="btn-danger">
+            <Trash2 className="w-4 h-4" aria-hidden="true" /> Delete My Account
+          </button>
+        </div>
       </div>
+
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,14,23,.6)', backdropFilter: 'blur(8px)' }} role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-scale-in" style={{ border: '1px solid var(--border)' }}>
+            <h2 id="delete-account-title" className="flex items-center gap-2 font-bold mb-2" style={{ color: '#991b1b' }}>
+              <AlertTriangle className="w-5 h-5" aria-hidden="true" /> Delete your account?
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-2)' }}>
+              This permanently deletes your profile{isCandidate ? ' and every application you\u2019ve submitted' : ', every job you\u2019ve posted, and all applications to them'}.
+              Enter your password to confirm.
+            </p>
+            <label className="label" htmlFor="delete-password">Password</label>
+            <input
+              id="delete-password" type="password" autoComplete="current-password"
+              value={deletePassword}
+              onChange={(e) => { setDeletePassword(e.target.value); setDeleteError('') }}
+              className="input" placeholder="Your current password"
+            />
+            {deleteError && <p className="text-xs mt-1.5" style={{ color: '#dc2626' }}>{deleteError}</p>}
+            <div className="flex gap-3 mt-5">
+              <button type="button" onClick={() => { setDeleteOpen(false); setDeletePassword(''); setDeleteError('') }} className="btn-secondary flex-1 justify-center">
+                Cancel
+              </button>
+              <button type="button" onClick={handleDeleteAccount} disabled={deleting || !deletePassword} className="btn-danger flex-1 justify-center">
+                {deleting ? (
+                  <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Deleting…</span>
+                ) : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

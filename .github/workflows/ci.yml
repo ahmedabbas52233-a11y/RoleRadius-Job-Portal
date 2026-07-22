@@ -94,6 +94,9 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm install
 
+      - name: Lint
+        run: cd frontend && npm run lint
+
       - name: Security audit
         run: cd frontend && npm audit --audit-level=high || true
 

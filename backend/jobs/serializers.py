@@ -9,6 +9,11 @@ class JobListSerializer(serializers.ModelSerializer):
     has_applied       = serializers.SerializerMethodField()
     recruiter_company = serializers.CharField(source='recruiter.recruiter_profile.company_name', read_only=True)
     recruiter_logo    = serializers.SerializerMethodField()
+    # Who actually posted this job -- meaningful now that a recruiter's job
+    # list can include teammates' jobs too (see Job.objects.manageable_by()),
+    # not just their own. Solo recruiters just see their own name here.
+    posted_by_name    = serializers.CharField(source='recruiter.full_name', read_only=True)
+    posted_by_id      = serializers.CharField(source='recruiter.id', read_only=True)
 
     class Meta:
         model = Job
@@ -19,6 +24,7 @@ class JobListSerializer(serializers.ModelSerializer):
             'skills_required', 'tags', 'application_deadline', 'is_active',
             'is_expired', 'views_count', 'application_count', 'is_saved',
             'has_applied', 'recruiter_company', 'recruiter_logo', 'created_at',
+            'posted_by_name', 'posted_by_id',
         ]
 
     def get_salary_display(self, obj):

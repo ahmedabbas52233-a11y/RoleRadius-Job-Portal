@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Zap, Menu, X, User, LogOut, PlusCircle, LayoutDashboard, ChevronDown } from 'lucide-react'
+import { Zap, Menu, X, User, Users, LogOut, PlusCircle, LayoutDashboard, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function Navbar() {
@@ -37,7 +37,7 @@ export default function Navbar() {
             {[
               {to:'/jobs', label:'Browse Jobs'},
               ...(isCandidate ? [{to:'/dashboard', label:'Dashboard'}] : []),
-              ...(isRecruiter ? [{to:'/recruiter/dashboard', label:'Dashboard'}] : []),
+              ...(isRecruiter ? [{to:'/recruiter/dashboard', label:'Dashboard'}, {to:'/recruiter/talent', label:'Find Talent'}] : []),
             ].map(({to, label}) => (
               <Link key={to} to={to}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -116,6 +116,9 @@ export default function Navbar() {
                 {isRecruiter && <>
                   <Link to="/recruiter/dashboard" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium hover:bg-surface-3 transition-colors" style={{color:'var(--text-2)'}}>
                     <LayoutDashboard className="w-4 h-4 text-primary-500" aria-hidden="true" /> Dashboard
+                  </Link>
+                  <Link to="/recruiter/talent" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium hover:bg-surface-3 transition-colors" style={{color:'var(--text-2)'}}>
+                    <Users className="w-4 h-4 text-primary-500" aria-hidden="true" /> Find Talent
                   </Link>
                   <Link to="/recruiter/post-job" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium hover:bg-surface-3 transition-colors" style={{color:'var(--text-2)'}}>
                     <PlusCircle className="w-4 h-4 text-primary-500" aria-hidden="true" /> Post a Job

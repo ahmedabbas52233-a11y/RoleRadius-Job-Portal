@@ -16,6 +16,8 @@ const CandidateDashboard = lazy(() => import('./pages/CandidateDashboard'))
 const RecruiterDashboard = lazy(() => import('./pages/RecruiterDashboard'))
 const PostJob            = lazy(() => import('./pages/PostJob'))
 const EditJob            = lazy(() => import('./pages/EditJob'))
+const TalentSearch       = lazy(() => import('./pages/TalentSearch'))
+const CandidateProfileView = lazy(() => import('./pages/CandidateProfileView'))
 const Profile            = lazy(() => import('./pages/Profile'))
 const ForgotPassword     = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword      = lazy(() => import('./pages/ResetPassword'))
@@ -86,6 +88,16 @@ export default function App() {
                   <Route path="/recruiter/jobs/:id/edit" element={
                     <ProtectedRoute role="recruiter">
                       <EditJob />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruiter/talent" element={
+                    <ProtectedRoute role="recruiter">
+                      <TalentSearch />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruiter/candidates/:id" element={
+                    <ProtectedRoute role="recruiter">
+                      <CandidateProfileView />
                     </ProtectedRoute>
                   } />
 

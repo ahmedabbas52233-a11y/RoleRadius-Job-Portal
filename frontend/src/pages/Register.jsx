@@ -49,7 +49,7 @@ export default function Register() {
             <Zap className="w-7 h-7 text-white" aria-hidden="true"/>
           </div>
           <h1 className="font-extrabold text-2xl mb-1" style={{color:'var(--text-1)',letterSpacing:'-.02em'}}>Create account</h1>
-          <p className="text-sm" style={{color:'var(--text-2)'}}>Join RoleRadius — it's completely free</p>
+          <p className="text-sm" style={{color:'var(--text-2)'}}>Join RoleRadius — it&apos;s completely free</p>
         </div>
 
         <div className="card p-7 shadow-card-md">

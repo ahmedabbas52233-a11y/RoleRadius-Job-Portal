@@ -1,7 +1,6 @@
 from rest_framework import serializers
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from .models import User, CandidateProfile, RecruiterProfile
+from .models import User, CandidateProfile, RecruiterProfile, Company
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -55,6 +54,31 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'is_email_verified', 'date_joined']
 
 
+class CandidateSearchResultSerializer(serializers.ModelSerializer):
+    """
+    Used for the recruiter talent-search *list* only — deliberately leaner
+    than CandidateProfileSerializer. Browsing a list of open-to-work
+    candidates shouldn't hand out email/phone/salary expectations for
+    everyone on the page; that level of detail is reserved for the full
+    profile view (PublicCandidateProfileView), which a recruiter reaches
+    by deliberately opening one specific candidate.
+    """
+    user_id = serializers.UUIDField(source='user.id', read_only=True)
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CandidateProfile
+        fields = [
+            'user_id', 'full_name', 'headline', 'bio', 'location',
+            'skills', 'experience_years', 'avatar_url', 'open_to_work',
+            'linkedin', 'github',
+        ]
+
+    def get_avatar_url(self, obj):
+        return obj.avatar.url if obj.avatar else None
+
+
 class CandidateProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     avatar_url = serializers.SerializerMethodField()
@@ -84,6 +108,68 @@ class CandidateProfileUpdateSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError('Skills must be a list.')
         return value
+
+    def validate_desired_job_types(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Desired job types must be a list.')
+        valid_codes = {c[0] for c in CandidateProfile.JOB_TYPE_CHOICES}
+        invalid = [v for v in value if v not in valid_codes]
+        if invalid:
+            raise serializers.ValidationError(
+                f'Invalid job type(s): {invalid}. Choose from: {sorted(valid_codes)}'
+            )
+        return value
+
+
+class CompanyTeammateSerializer(serializers.ModelSerializer):
+    """Minimal teammate info shown to other members of the same Company -- name/email only."""
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'email']
+
+
+class CompanySerializer(serializers.ModelSerializer):
+    """
+    Full detail view -- includes join_code and the teammate roster. Only
+    ever returned to a recruiter who is themselves a member of this
+    Company (enforced in the view, not here), so exposing join_code here
+    is safe: a non-member never reaches a serializer instance for a
+    Company they don't belong to.
+    """
+    logo_url = serializers.SerializerMethodField()
+    teammates = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Company
+        fields = [
+            'id', 'name', 'description', 'website', 'size', 'industry',
+            'logo_url', 'join_code', 'teammates', 'created_at',
+        ]
+
+    def get_logo_url(self, obj):
+        return obj.logo.url if obj.logo else None
+
+    def get_teammates(self, obj):
+        teammates = User.objects.filter(recruiter_profile__company=obj).order_by('full_name')
+        return CompanyTeammateSerializer(teammates, many=True).data
+
+
+class CompanyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = ['name', 'description', 'website', 'size', 'industry']
+
+    def validate_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError('Company name is required.')
+        return value.strip()
+
+
+class CompanyJoinSerializer(serializers.Serializer):
+    join_code = serializers.CharField(max_length=8)
+
+    def validate_join_code(self, value):
+        return value.strip().upper()
 
 
 class RecruiterProfileSerializer(serializers.ModelSerializer):

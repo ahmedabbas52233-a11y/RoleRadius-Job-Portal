@@ -141,7 +141,6 @@ class CandidateProfileTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_cv_upload_rejected_wrong_extension(self):
-        from io import BytesIO
         from django.core.files.uploadedfile import SimpleUploadedFile
         fake = SimpleUploadedFile('cv.exe', b'fake', content_type='application/octet-stream')
         res = self.client.post(reverse('cv_upload'), {'cv': fake}, format='multipart')
@@ -196,3 +195,335 @@ class PasswordResetTests(TestCase):
             'token': str(token_obj.token), 'new_password': 'anotherpass789', 'confirm_password': 'anotherpass789'
         })
         self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PublicCandidateProfileSecurityTests(TestCase):
+    """
+    Regression tests for the PII-exposure fix: /api/auth/candidates/<id>/
+    must be recruiter-only, never reachable by another candidate, and
+    must not leak profiles of candidates who are not open_to_work unless
+    they've applied to that specific recruiter's job.
+    """
+    def setUp(self):
+        self.client = APIClient()
+        self.target = make_candidate(email='target@test.com', full_name='Target Candidate')
+        self.target.candidate_profile.headline = 'Senior Engineer'
+        self.target.candidate_profile.phone = '+44 7000 000000'
+        self.target.candidate_profile.save()
+        self.url = reverse('public_candidate', kwargs={'user_id': self.target.id})
+
+    def test_other_candidate_cannot_view_profile(self):
+        other_candidate = make_candidate(email='nosy@test.com', full_name='Nosy Candidate')
+        self.client.force_authenticate(user=other_candidate)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_user_cannot_view_profile(self):
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_recruiter_can_view_open_to_work_profile(self):
+        recruiter = make_recruiter(email='hiring@test.com')
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['headline'], 'Senior Engineer')
+
+    def test_recruiter_cannot_view_opted_out_non_applicant(self):
+        self.target.candidate_profile.open_to_work = False
+        self.target.candidate_profile.save()
+        recruiter = make_recruiter(email='hiring2@test.com')
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_recruiter_can_view_opted_out_applicant_to_their_job(self):
+        from jobs.models import Job
+        from applications.models import Application
+        self.target.candidate_profile.open_to_work = False
+        self.target.candidate_profile.save()
+        recruiter = make_recruiter(email='hiring3@test.com')
+        job = Job.objects.create(
+            recruiter=recruiter, title='Backend Dev', company_name='Test Corp',
+            description='d', requirements='r', location='Remote',
+        )
+        Application.objects.create(job=job, candidate=self.target)
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+
+class CandidateSearchTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.recruiter = make_recruiter(email='sourcer@test.com')
+        self.open_candidate = make_candidate(email='open@test.com', full_name='Open Candidate')
+        self.open_candidate.candidate_profile.skills = ['Python', 'Django']
+        self.open_candidate.candidate_profile.location = 'London, UK'
+        self.open_candidate.candidate_profile.experience_years = 5
+        self.open_candidate.candidate_profile.open_to_work = True
+        self.open_candidate.candidate_profile.save()
+
+        self.closed_candidate = make_candidate(email='closed@test.com', full_name='Closed Candidate')
+        self.closed_candidate.candidate_profile.skills = ['Python']
+        self.closed_candidate.candidate_profile.open_to_work = False
+        self.closed_candidate.candidate_profile.save()
+
+        self.url = reverse('candidate_search')
+
+    def test_only_recruiters_can_search(self):
+        self.client.force_authenticate(user=self.open_candidate)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_only_open_to_work_candidates_appear(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        names = [r['full_name'] for r in res.data['results']]
+        self.assertIn('Open Candidate', names)
+        self.assertNotIn('Closed Candidate', names)
+
+    def test_search_results_exclude_pii(self):
+        """The list view must never leak email/phone/salary — only the detail view does."""
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url)
+        result = res.data['results'][0]
+        self.assertNotIn('email', result)
+        self.assertNotIn('phone', result)
+        self.assertNotIn('desired_salary_min', result)
+
+    def test_filter_by_skill(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url, {'skills': 'Django'})
+        names = [r['full_name'] for r in res.data['results']]
+        self.assertEqual(names, ['Open Candidate'])
+
+    def test_filter_by_location(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(self.url, {'location': 'London'})
+        names = [r['full_name'] for r in res.data['results']]
+        self.assertIn('Open Candidate', names)
+
+
+class DeleteAccountTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = make_candidate(email='deleteme@test.com')
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse('delete_account')
+
+    def test_wrong_password_rejected(self):
+        res = self.client.post(self.url, {'password': 'wrongpass'})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(User.objects.filter(email='deleteme@test.com').exists())
+
+    def test_correct_password_deletes_account(self):
+        res = self.client.post(self.url, {'password': 'testpass123'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(User.objects.filter(email='deleteme@test.com').exists())
+
+    def test_deleting_recruiter_cascades_their_jobs(self):
+        from jobs.models import Job
+        recruiter = make_recruiter(email='rec_delete@test.com')
+        job = Job.objects.create(
+            recruiter=recruiter, title='Dev', company_name='Acme',
+            description='d', requirements='r',
+        )
+        self.client.force_authenticate(user=recruiter)
+        res = self.client.post(self.url, {'password': 'testpass123'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(Job.objects.filter(id=job.id).exists())
+
+    def test_unauthenticated_cannot_delete(self):
+        self.client.force_authenticate(user=None)
+        res = self.client.post(self.url, {'password': 'testpass123'})
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class CompanyTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.recruiter = make_recruiter(email='founder@test.com')
+        self.other_recruiter = make_recruiter(email='teammate@test.com')
+        self.unrelated_recruiter = make_recruiter(email='stranger@test.com')
+
+    def test_solo_recruiter_has_no_company(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(reverse('my_company'))
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_recruiter_can_create_company(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.post(reverse('create_company'), {
+            'name': 'Acme Recruiting', 'description': 'We hire great people.',
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['name'], 'Acme Recruiting')
+        self.assertEqual(len(res.data['join_code']), 8)
+        self.recruiter.recruiter_profile.refresh_from_db()
+        self.assertIsNotNone(self.recruiter.recruiter_profile.company)
+
+    def test_creating_a_second_company_while_in_one_is_rejected(self):
+        self.client.force_authenticate(user=self.recruiter)
+        self.client.post(reverse('create_company'), {'name': 'First Co'}, format='json')
+        res = self.client.post(reverse('create_company'), {'name': 'Second Co'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_company_name_required(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.post(reverse('create_company'), {'name': '   '}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_teammate_can_join_with_correct_code(self):
+        self.client.force_authenticate(user=self.recruiter)
+        create_res = self.client.post(reverse('create_company'), {'name': 'Acme'}, format='json')
+        join_code = create_res.data['join_code']
+
+        self.client.force_authenticate(user=self.other_recruiter)
+        join_res = self.client.post(reverse('join_company'), {'join_code': join_code}, format='json')
+        self.assertEqual(join_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(join_res.data['name'], 'Acme')
+
+    def test_join_with_wrong_code_is_rejected(self):
+        self.client.force_authenticate(user=self.recruiter)
+        self.client.post(reverse('create_company'), {'name': 'Acme'}, format='json')
+
+        self.client.force_authenticate(user=self.other_recruiter)
+        res = self.client.post(reverse('join_company'), {'join_code': 'WRONGCOD'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_join_code_is_case_insensitive(self):
+        self.client.force_authenticate(user=self.recruiter)
+        create_res = self.client.post(reverse('create_company'), {'name': 'Acme'}, format='json')
+        join_code = create_res.data['join_code']
+
+        self.client.force_authenticate(user=self.other_recruiter)
+        res = self.client.post(reverse('join_company'), {'join_code': join_code.lower()}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_joining_while_already_in_a_company_is_rejected(self):
+        self.client.force_authenticate(user=self.recruiter)
+        create_res = self.client.post(reverse('create_company'), {'name': 'Acme'}, format='json')
+        join_code = create_res.data['join_code']
+
+        self.client.force_authenticate(user=self.other_recruiter)
+        self.client.post(reverse('create_company'), {'name': 'Other Co'}, format='json')
+        res = self.client.post(reverse('join_company'), {'join_code': join_code}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_company_view_lists_all_teammates(self):
+        self.client.force_authenticate(user=self.recruiter)
+        create_res = self.client.post(reverse('create_company'), {'name': 'Acme'}, format='json')
+        join_code = create_res.data['join_code']
+        self.client.force_authenticate(user=self.other_recruiter)
+        self.client.post(reverse('join_company'), {'join_code': join_code}, format='json')
+
+        res = self.client.get(reverse('my_company'))
+        teammate_emails = {t['email'] for t in res.data['teammates']}
+        self.assertEqual(teammate_emails, {'founder@test.com', 'teammate@test.com'})
+
+    def test_recruiter_can_leave_company(self):
+        self.client.force_authenticate(user=self.recruiter)
+        self.client.post(reverse('create_company'), {'name': 'Acme'}, format='json')
+        leave_res = self.client.post(reverse('leave_company'))
+        self.assertEqual(leave_res.status_code, status.HTTP_200_OK)
+        self.recruiter.recruiter_profile.refresh_from_db()
+        self.assertIsNone(self.recruiter.recruiter_profile.company)
+
+    def test_leaving_when_not_in_a_company_is_rejected(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.post(reverse('leave_company'))
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_company_endpoints_require_recruiter_role(self):
+        candidate = make_candidate()
+        self.client.force_authenticate(user=candidate)
+        for url_name, method in [
+            ('my_company', 'get'), ('create_company', 'post'),
+            ('join_company', 'post'), ('leave_company', 'post'),
+        ]:
+            res = getattr(self.client, method)(reverse(url_name))
+            self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN, f'{url_name} should be recruiter-only')
+
+
+class ManageableJobsAccessTests(TestCase):
+    """
+    Verifies Job.objects.manageable_by() actually changes real API behavior:
+    teammates in the same Company can see/manage each other's jobs, solo
+    recruiters and unrelated recruiters cannot.
+    """
+    def setUp(self):
+        from jobs.models import Job
+        self.client = APIClient()
+        self.founder = make_recruiter(email='founder2@test.com', full_name='Founder Recruiter')
+        self.teammate = make_recruiter(email='teammate2@test.com', full_name='Teammate Recruiter')
+        self.stranger = make_recruiter(email='stranger2@test.com')
+
+        self.client.force_authenticate(user=self.founder)
+        create_res = self.client.post(reverse('create_company'), {'name': 'TeamCo'}, format='json')
+        join_code = create_res.data['join_code']
+        self.client.force_authenticate(user=self.teammate)
+        self.client.post(reverse('join_company'), {'join_code': join_code}, format='json')
+
+        self.job = Job.objects.create(
+            recruiter=self.founder, title='Backend Dev', company_name='TeamCo',
+            description='d', requirements='r',
+        )
+
+    def test_teammate_can_edit_founders_job(self):
+        self.client.force_authenticate(user=self.teammate)
+        res = self.client.patch(
+            reverse('job_update', kwargs={'pk': self.job.pk}),
+            {'title': 'Senior Backend Dev'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_teammate_can_view_founders_applicants(self):
+        self.client.force_authenticate(user=self.teammate)
+        res = self.client.get(reverse('job_applications', kwargs={'job_id': self.job.pk}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_teammate_appears_in_founders_job_list(self):
+        self.client.force_authenticate(user=self.teammate)
+        res = self.client.get(reverse('my_jobs'))
+        job_ids = [j['id'] for j in res.data['results']] if 'results' in res.data else [j['id'] for j in res.data]
+        self.assertIn(str(self.job.pk), job_ids)
+
+    def test_shared_job_shows_original_posters_name_not_viewers(self):
+        """A teammate viewing the founder's job should see who actually posted it, not themselves."""
+        self.client.force_authenticate(user=self.teammate)
+        res = self.client.get(reverse('my_jobs'))
+        results = res.data['results'] if 'results' in res.data else res.data
+        job_entry = next(j for j in results if j['id'] == str(self.job.pk))
+        self.assertEqual(job_entry['posted_by_name'], self.founder.full_name)
+        self.assertNotEqual(job_entry['posted_by_name'], self.teammate.full_name)
+
+    def test_stranger_cannot_edit_founders_job(self):
+        self.client.force_authenticate(user=self.stranger)
+        res = self.client.patch(
+            reverse('job_update', kwargs={'pk': self.job.pk}),
+            {'title': 'Hijacked Title'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_stranger_cannot_view_founders_applicants(self):
+        self.client.force_authenticate(user=self.stranger)
+        res = self.client.get(reverse('job_applications', kwargs={'job_id': self.job.pk}))
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_solo_recruiter_behavior_unchanged(self):
+        """A recruiter who never touches Company at all still only sees their own jobs -- no regression."""
+        self.client.force_authenticate(user=self.stranger)
+        res = self.client.get(reverse('my_jobs'))
+        job_ids = [j['id'] for j in res.data['results']] if 'results' in res.data else [j['id'] for j in res.data]
+        self.assertNotIn(str(self.job.pk), job_ids)
+
+    def test_after_leaving_company_teammate_loses_access(self):
+        self.client.force_authenticate(user=self.teammate)
+        self.client.post(reverse('leave_company'))
+        res = self.client.patch(
+            reverse('job_update', kwargs={'pk': self.job.pk}),
+            {'title': 'Should Fail'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)

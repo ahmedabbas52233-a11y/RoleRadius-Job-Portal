@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { MapPin, Clock, Banknote, Bookmark, BookmarkCheck, Zap, Building2, Briefcase } from 'lucide-react'
 import { jobsAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import MatchBreakdown from './MatchBreakdown'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -19,7 +20,7 @@ const MODE_STYLES = {
   onsite: {bg:'#f3f4f6',color:'#374151',label:'On-site'},
 }
 
-export default function JobCard({ job, onSaveToggle }) {
+function JobCard({ job, onSaveToggle }) {
   const { isAuthenticated, isCandidate } = useAuth()
   const [saved, setSaved]   = useState(job.is_saved || false)
   const [saving, setSaving] = useState(false)
@@ -57,7 +58,7 @@ export default function JobCard({ job, onSaveToggle }) {
             <div className="w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0"
               style={{background:'var(--surface-2)',borderColor:'var(--border)'}}>
               {job.company_logo
-                ? <img src={job.company_logo} alt={`${job.company_name} logo`} className="w-8 h-8 object-contain rounded-lg" />
+                ? <img src={job.company_logo} alt={`${job.company_name} logo`} loading="lazy" decoding="async" className="w-8 h-8 object-contain rounded-lg" />
                 : <Building2 className="w-5 h-5" style={{color:'var(--text-3)'}} aria-hidden="true" />}
             </div>
             <div className="min-w-0">
@@ -106,6 +107,18 @@ export default function JobCard({ job, onSaveToggle }) {
           </div>
         )}
 
+        {job.matched_skills !== undefined && (
+          <div className="mt-3">
+            <MatchBreakdown breakdown={{
+              matched_skills: job.matched_skills,
+              missing_skills: job.missing_skills,
+              location_compatible: job.location_compatible,
+              experience_fit: job.experience_fit,
+              salary_compatible: job.salary_compatible,
+            }} />
+          </div>
+        )}
+
         <Link to={`/jobs/${job.id}`} className="btn-secondary w-full justify-center mt-4 text-xs py-2.5">
           View Role <Briefcase className="w-3.5 h-3.5" aria-hidden="true"/>
         </Link>
@@ -113,3 +126,5 @@ export default function JobCard({ job, onSaveToggle }) {
     </article>
   )
 }
+
+export default memo(JobCard)

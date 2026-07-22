@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User, CandidateProfile, RecruiterProfile
-from applications.models import Application, ApplicationStatusHistory
+from applications.models import Application, ApplicationStatusHistory, InterviewRound
 from jobs.models import Job
 
 
@@ -108,6 +108,141 @@ class WithdrawApplicationTests(TestCase):
         res = self.client.post(reverse('withdraw_application', kwargs={'pk': self.app.pk}))
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_withdrawing_an_offered_application_becomes_offer_declined(self):
+        """Declining an extended offer is a distinct outcome from a generic withdrawal."""
+        self.app.status = Application.OFFERED
+        self.app.save()
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.post(reverse('withdraw_application', kwargs={'pk': self.app.pk}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.OFFER_DECLINED)
+
+    def test_cannot_withdraw_hired_application(self):
+        self.app.status = Application.HIRED
+        self.app.save()
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.post(reverse('withdraw_application', kwargs={'pk': self.app.pk}))
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class StatusTransitionGuardTests(TestCase):
+    """An application can only be hired or have an offer declined once it has actually been offered."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.candidate = make_candidate()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.app = make_application(self.candidate, self.job)
+        self.client.force_authenticate(user=self.recruiter)
+
+    def test_cannot_jump_straight_to_hired(self):
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'status': 'hired'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.PENDING)
+
+    def test_can_mark_hired_after_offered(self):
+        self.app.status = Application.OFFERED
+        self.app.save()
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'status': 'hired'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.HIRED)
+
+    def test_cannot_move_a_rejected_application_anywhere(self):
+        self.app.status = Application.REJECTED
+        self.app.save()
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'status': 'shortlisted'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_notes_only_update_does_not_require_status_change(self):
+        """A recruiter should be able to jot a note without forcing a status transition."""
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': self.app.pk}),
+            {'recruiter_notes': 'Strong candidate, follow up next week.'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, Application.PENDING)
+        self.assertEqual(self.app.recruiter_notes, 'Strong candidate, follow up next week.')
+
+
+class BulkUpdateApplicationStatusTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.candidates = [make_candidate(email=f'c{i}@test.com') for i in range(3)]
+        self.apps = [make_application(c, self.job) for c in self.candidates]
+        self.client.force_authenticate(user=self.recruiter)
+
+    def test_bulk_update_moves_all_valid_applications(self):
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(a.pk) for a in self.apps], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['updated']), 3)
+        for app in self.apps:
+            app.refresh_from_db()
+            self.assertEqual(app.status, Application.SHORTLISTED)
+
+    def test_bulk_update_skips_illegal_transitions_without_failing_whole_batch(self):
+        self.apps[0].status = Application.REJECTED
+        self.apps[0].save()
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(a.pk) for a in self.apps], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['updated']), 2)
+        self.assertEqual(len(res.data['skipped']), 1)
+
+    def test_bulk_update_cannot_touch_another_recruiters_applications(self):
+        other_recruiter = make_recruiter(email='other_rec2@test.com')
+        other_job = make_job(other_recruiter)
+        other_app = make_application(make_candidate(email='outside@test.com'), other_job)
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(other_app.pk)], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['updated'], [])
+        self.assertIn(str(other_app.pk), res.data['not_found'])
+        other_app.refresh_from_db()
+        self.assertEqual(other_app.status, Application.PENDING)
+
+    def test_bulk_update_rejects_invalid_status_value(self):
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(self.apps[0].pk)], 'status': 'not_a_real_status'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bulk_update_requires_recruiter_role(self):
+        self.client.force_authenticate(user=self.candidates[0])
+        res = self.client.patch(
+            reverse('bulk_update_status'),
+            {'application_ids': [str(self.apps[0].pk)], 'status': 'shortlisted'},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class RecruiterUpdateStatusTests(TestCase):
     def setUp(self):
@@ -148,6 +283,34 @@ class RecruiterUpdateStatusTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
 
+class MatchBreakdownExposureTests(TestCase):
+    """The explainability fields added to matching/engine.py should surface on application views."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.candidate = make_candidate()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.app = make_application(self.candidate, self.job)
+
+    def test_candidate_application_list_includes_match_breakdown(self):
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.get(reverse('my_applications'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        result = res.data['results'][0] if 'results' in res.data else res.data[0]
+        self.assertIn('match_breakdown', result)
+        self.assertIn('matched_skills', result['match_breakdown'])
+
+    def test_recruiter_applicant_list_includes_match_breakdown_and_cv_link(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(reverse('job_applications', kwargs={'job_id': self.job.pk}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        result = res.data['results'][0] if 'results' in res.data else res.data[0]
+        self.assertIn('match_breakdown', result)
+        self.assertIn('cv_download_url', result)
+        self.assertIn('bio', result['candidate_profile'])
+
+
 class DashboardStatsTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -174,3 +337,112 @@ class DashboardStatsTests(TestCase):
         self.client.force_authenticate(user=self.candidate)
         res = self.client.get(reverse('recruiter_stats'))
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class InterviewRoundTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.candidate = make_candidate()
+        self.recruiter = make_recruiter()
+        self.job = make_job(self.recruiter)
+        self.app = make_application(self.candidate, self.job)
+        self.rounds_url = reverse('interview_rounds', kwargs={'application_pk': self.app.pk})
+
+    def _detail_url(self, round_id):
+        return reverse('interview_round_detail', kwargs={'application_pk': self.app.pk, 'round_pk': round_id})
+
+    def test_recruiter_can_create_first_round(self):
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.post(self.rounds_url, {
+            'round_type': 'screen', 'interviewer_name': 'Jane Doe',
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['round_number'], 1)
+        self.assertEqual(res.data['interviewer_name'], 'Jane Doe')
+        self.assertEqual(res.data['outcome'], 'pending')
+
+    def test_round_numbers_auto_increment(self):
+        self.client.force_authenticate(user=self.recruiter)
+        first = self.client.post(self.rounds_url, {'round_type': 'screen'}, format='json')
+        second = self.client.post(self.rounds_url, {'round_type': 'technical'}, format='json')
+        third = self.client.post(self.rounds_url, {'round_type': 'final'}, format='json')
+        self.assertEqual(
+            [first.data['round_number'], second.data['round_number'], third.data['round_number']],
+            [1, 2, 3]
+        )
+
+    def test_client_cannot_control_round_number(self):
+        """round_number must always be server-assigned, never trusted from client input."""
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.post(self.rounds_url, {
+            'round_type': 'screen', 'round_number': 999,
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['round_number'], 1)  # ignored client value, server assigned 1
+
+    def test_candidate_cannot_create_round(self):
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.post(self.rounds_url, {'round_type': 'screen'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_other_recruiter_cannot_create_round_for_someone_elses_application(self):
+        other_recruiter = make_recruiter(email='other_rec@test.com')
+        self.client.force_authenticate(user=other_recruiter)
+        res = self.client.post(self.rounds_url, {'round_type': 'screen'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_recruiter_can_update_outcome_and_feedback(self):
+        self.client.force_authenticate(user=self.recruiter)
+        create_res = self.client.post(self.rounds_url, {'round_type': 'technical'}, format='json')
+        round_id = create_res.data['id']
+        update_res = self.client.patch(self._detail_url(round_id), {
+            'outcome': 'passed', 'feedback': 'Strong technical answers.', 'score': 4,
+        }, format='json')
+        self.assertEqual(update_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_res.data['outcome'], 'passed')
+        self.assertEqual(update_res.data['score'], 4)
+
+    def test_score_out_of_range_rejected_by_db_constraint(self):
+        """The CheckConstraint enforces 1-5 at the database level as a defense-in-depth backstop."""
+        round_obj = InterviewRound.objects.create(application=self.app, round_number=1)
+        round_obj.score = 10
+        with self.assertRaises(Exception):
+            round_obj.save()
+            round_obj.full_clean()
+
+    def test_recruiter_can_delete_round(self):
+        self.client.force_authenticate(user=self.recruiter)
+        create_res = self.client.post(self.rounds_url, {'round_type': 'screen'}, format='json')
+        round_id = create_res.data['id']
+        delete_res = self.client.delete(self._detail_url(round_id))
+        self.assertEqual(delete_res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(InterviewRound.objects.filter(id=round_id).exists())
+
+    def test_candidate_view_excludes_private_fields(self):
+        """Candidate-facing serializer must never expose feedback, score, or interviewer_name."""
+        InterviewRound.objects.create(
+            application=self.app, round_number=1, round_type='technical',
+            interviewer_name='Secret Interviewer', feedback='Private notes', score=3,
+        )
+        self.client.force_authenticate(user=self.candidate)
+        res = self.client.get(reverse('my_applications'))
+        result = res.data['results'][0] if 'results' in res.data else res.data[0]
+        round_data = result['interview_rounds'][0]
+        self.assertNotIn('feedback', round_data)
+        self.assertNotIn('score', round_data)
+        self.assertNotIn('interviewer_name', round_data)
+        self.assertIn('outcome', round_data)
+        self.assertIn('round_type', round_data)
+
+    def test_recruiter_view_includes_private_fields(self):
+        InterviewRound.objects.create(
+            application=self.app, round_number=1, round_type='technical',
+            interviewer_name='Jane Doe', feedback='Great candidate', score=5,
+        )
+        self.client.force_authenticate(user=self.recruiter)
+        res = self.client.get(reverse('job_applications', kwargs={'job_id': self.job.pk}))
+        result = res.data['results'][0] if 'results' in res.data else res.data[0]
+        round_data = result['interview_rounds'][0]
+        self.assertEqual(round_data['feedback'], 'Great candidate')
+        self.assertEqual(round_data['score'], 5)
+        self.assertEqual(round_data['interviewer_name'], 'Jane Doe')

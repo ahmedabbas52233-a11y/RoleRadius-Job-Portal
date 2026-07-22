@@ -33,13 +33,13 @@ export default function ForgotPassword() {
             <div className="text-center py-4">
               <CheckCircle className="w-12 h-12 text-brand-600 mx-auto mb-4" aria-hidden="true" />
               <h2 className="text-lg font-bold text-gray-900 mb-2">Check your email</h2>
-              <p className="text-sm text-gray-500">If that email exists, we've sent a reset link. Check your inbox (and spam folder).</p>
+              <p className="text-sm text-gray-500">If that email exists, we&apos;ve sent a reset link. Check your inbox (and spam folder).</p>
             </div>
           ) : (
             <>
               <Mail className="w-10 h-10 text-brand-600 mb-4" aria-hidden="true" />
               <h1 className="text-xl font-bold text-gray-900 mb-1">Reset password</h1>
-              <p className="text-sm text-gray-500 mb-6">Enter your email and we'll send a reset link.</p>
+              <p className="text-sm text-gray-500 mb-6">Enter your email and we&apos;ll send a reset link.</p>
               <form onSubmit={handleSubmit} noValidate>
                 <label htmlFor="reset-email" className="label">Email address</label>
                 <input id="reset-email" type="email" value={email} onChange={e => setEmail(e.target.value)}

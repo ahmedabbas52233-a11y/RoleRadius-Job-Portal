@@ -79,7 +79,7 @@ WEIGHTS = {
 }
 
 
-def clean_text(text: Optional[str]) -> str:
+def clean_text(text: str) -> str:
     """Normalise text for TF-IDF processing."""
     if not text:
         return ""
@@ -195,7 +195,7 @@ def _salary_compatibility(
     return 0.2, False
 
 
-def _job_type_compatibility(job_type: str, desired_job_types: Optional[list]) -> tuple[float, Optional[bool]]:
+def _job_type_compatibility(job_type: str, desired_job_types: list) -> tuple[float, Optional[bool]]:
     """Return (score 0-1, True/False/None-unknown) for job-type fit.
 
     None (neutral, unknown) when the candidate hasn't stated any

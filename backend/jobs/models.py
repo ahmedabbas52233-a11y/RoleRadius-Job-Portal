@@ -3,6 +3,28 @@ from django.utils import timezone
 import uuid
 
 
+class JobQuerySet(models.QuerySet):
+    def manageable_by(self, user):
+        """
+        Jobs a given recruiter can view/manage: their own posted jobs, plus
+        every job posted by any teammate who shares the same Company (if
+        the user has joined/created one -- see accounts.models.Company).
+
+        This is the single source of truth for "can this recruiter act on
+        this job" -- every view that used to filter by `recruiter=user`
+        directly should use this instead, so team-based access can never
+        drift out of sync between different endpoints. A recruiter with no
+        Company (the default, unchanged behavior) only ever sees jobs
+        where `recruiter == user`, exactly as before Company existed.
+        """
+        query = models.Q(recruiter=user)
+        profile = getattr(user, 'recruiter_profile', None)
+        company = getattr(profile, 'company', None) if profile else None
+        if company is not None:
+            query |= models.Q(recruiter__recruiter_profile__company=company)
+        return self.filter(query)
+
+
 class Job(models.Model):
     FULL_TIME  = 'full_time'
     PART_TIME  = 'part_time'
@@ -63,6 +85,8 @@ class Job(models.Model):
     views_count      = models.PositiveIntegerField(default=0)
     created_at       = models.DateTimeField(auto_now_add=True)
     updated_at       = models.DateTimeField(auto_now=True)
+
+    objects = JobQuerySet.as_manager()
 
     class Meta:
         db_table = 'jobs'

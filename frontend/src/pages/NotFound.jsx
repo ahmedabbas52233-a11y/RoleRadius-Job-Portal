@@ -9,7 +9,7 @@ export default function NotFound() {
         </div>
         <p className="text-7xl font-extrabold mb-2 gradient-text">404</p>
         <h1 className="text-xl font-bold mb-2" style={{color:'var(--text-1)'}}>Page not found</h1>
-        <p className="text-sm mb-8" style={{color:'var(--text-2)'}}>This page doesn't exist or was moved.</p>
+        <p className="text-sm mb-8" style={{color:'var(--text-2)'}}>This page doesn&apos;t exist or was moved.</p>
         <div className="flex gap-3 justify-center">
           <Link to="/" className="btn-primary">Go Home</Link>
           <Link to="/jobs" className="btn-secondary">Browse Jobs</Link>

@@ -1,0 +1,9 @@
+{
+  "default": true,
+  "MD024": {
+    "comment": "Changelogs legitimately reuse headings like '### Added' / '### Fixed' under every version section -- that's the standard Keep a Changelog format, not a mistake. siblings_only restricts the duplicate-heading check to headings that share the same immediate parent, so it still catches a genuine same-section duplicate but stops flagging the same subheading repeated across different ## [version] sections.",
+    "siblings_only": true
+  },
+  "MD013": false,
+  "MD033": false
+}

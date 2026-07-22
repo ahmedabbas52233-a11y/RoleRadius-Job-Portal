@@ -112,7 +112,7 @@ export default function JobDetail() {
                     <Zap className="w-6 h-6" style={{color:'#059669'}} aria-hidden="true" />
                   </div>
                   <p className="font-semibold mb-1" style={{color:'var(--text-1)'}}>Application submitted!</p>
-                  <p className="text-sm" style={{color:'var(--text-3)'}}>You'll be notified of any updates.</p>
+                  <p className="text-sm" style={{color:'var(--text-3)'}}>You&apos;ll be notified of any updates.</p>
                 </div>
               ) : !isAuthenticated ? (
                 <div className="text-center">

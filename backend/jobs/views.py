@@ -2,7 +2,7 @@ from rest_framework import generics, filters, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, CharFilter, ChoiceFilter, BooleanFilter
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as django_filters
 
@@ -12,7 +12,7 @@ from .serializers import (
     JobCreateUpdateSerializer, SavedJobSerializer
 )
 from accounts.models import User
-from accounts.permissions import IsCandidate, IsRecruiter, IsRecruiterOrReadOnly
+from accounts.permissions import IsRecruiter
 
 
 class JobFilter(FilterSet):
@@ -38,10 +38,20 @@ def _annotate_jobs(queryset, user):
 
     - application_count: annotated via SQL COUNT, zero extra queries
     - saved_ids / applied_ids: fetched once per request and passed via context
+
+    IMPORTANT: Django silently clears a model's Meta.ordering whenever you
+    call .annotate() with an aggregate function (documented ORM behavior --
+    aggregation can change what "default order" even means), so the
+    -created_at ordering Job.Meta declares is lost the moment this runs
+    unless it's explicitly reapplied here. Without this, paginated job
+    listings become non-deterministically ordered per page (surfaced as
+    DRF's UnorderedObjectListWarning during testing) -- a real, pre-existing
+    gap, not a cosmetic one: a caller paging through /jobs/ could see the
+    same job twice or skip one entirely across page boundaries.
     """
     return queryset.annotate(
         application_count_annotated=Count('applications', distinct=True)
-    ).select_related('recruiter__recruiter_profile')
+    ).select_related('recruiter__recruiter_profile').order_by('-created_at')
 
 
 class JobListView(generics.ListAPIView):
@@ -109,7 +119,7 @@ class RecruiterJobListView(generics.ListAPIView):
 
     def get_queryset(self):
         return _annotate_jobs(
-            Job.objects.filter(recruiter=self.request.user),
+            Job.objects.manageable_by(self.request.user),
             self.request.user
         )
 
@@ -145,7 +155,7 @@ class JobUpdateView(generics.UpdateAPIView):
     permission_classes = [IsRecruiter]
 
     def get_queryset(self):
-        return Job.objects.filter(recruiter=self.request.user)
+        return Job.objects.manageable_by(self.request.user)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -153,6 +163,13 @@ class JobUpdateView(generics.UpdateAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        # The job's text/requirements may have changed materially enough to
+        # shift match scores — re-score every existing application rather
+        # than leave them frozen at whatever they were when first applied.
+        # (This was previously a documented-but-dead code path: the function
+        # existed but nothing ever called it.)
+        from matching.engine import batch_score_applications
+        batch_score_applications(instance)
         return Response(JobDetailSerializer(instance, context={'request': request}).data)
 
 
@@ -164,7 +181,7 @@ class JobDeleteView(generics.DestroyAPIView):
     permission_classes = [IsRecruiter]
 
     def get_queryset(self):
-        return Job.objects.filter(recruiter=self.request.user)
+        return Job.objects.manageable_by(self.request.user)
 
     def perform_destroy(self, instance):
         from django.utils import timezone
@@ -180,7 +197,7 @@ class JobToggleActiveView(APIView):
     permission_classes = [IsRecruiter]
 
     def post(self, request, pk):
-        job = get_object_or_404(Job, pk=pk, recruiter=request.user)
+        job = get_object_or_404(Job.objects.manageable_by(request.user), pk=pk)
         job.is_active = not job.is_active
         job.save(update_fields=['is_active'])
         return Response({'is_active': job.is_active, 'id': str(job.id)})
