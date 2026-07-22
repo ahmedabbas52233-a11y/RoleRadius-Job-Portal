@@ -48,11 +48,6 @@ signal-driven caching layer for the matching corpus.
 | **Team / Company Settings** | **Profile / CV** |
 | `[ 📸 screenshot placeholder — docs/screenshots/team-settings.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/profile-cv.png ]` |
 
-Once you have real images, swap a placeholder cell for:
-```markdown
-![Home page](docs/screenshots/home.png)
-```
-
 ## ✨ Features
 
 **For candidates**
