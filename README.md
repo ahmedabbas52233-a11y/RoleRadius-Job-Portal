@@ -44,7 +44,7 @@ signal-driven caching layer for the matching corpus.
 | **Candidate Dashboard** | **Recruiter Dashboard** |
 | ![Candidates Dashboard](docs/screenshots/Dashboard-1.png) | ![Recruiter Dashboard](docs/screenshots/Recruiter-Dashboard.png) |
 | **Interview Rounds** | **Talent Search** |
-| `[ 📸 screenshot placeholder — docs/screenshots/interview-rounds.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/talent-search.png ]` |
+| `[ 📸 screenshot placeholder — docs/screenshots/interview-rounds.png ]` | ![Recruiter Dashboard](docs/screenshots/Talent-search.png) |
 | **Team / Company Settings** | **Profile / CV** |
 | `[ 📸 screenshot placeholder — docs/screenshots/team-settings.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/profile-cv.png ]` |
 
