@@ -434,7 +434,15 @@ class MyCompanyView(APIView):
                 {'detail': 'You are not part of a company/team yet.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+<<<<<<< Updated upstream
         return Response(CompanySerializer(profile.company).data)
+=======
+        data = CompanySerializer(profile.company).data
+        data['my_role'] = profile.company_role
+        data['can_manage_jobs'] = profile.can_manage_jobs
+        data['can_manage_teammates'] = profile.can_manage_teammates
+        return Response(data)
+>>>>>>> Stashed changes
 
 
 class CreateCompanyView(APIView):
@@ -452,7 +460,12 @@ class CreateCompanyView(APIView):
         serializer.is_valid(raise_exception=True)
         company = serializer.save(created_by=request.user)
         profile.company = company
+<<<<<<< Updated upstream
         profile.save(update_fields=['company'])
+=======
+        profile.company_role = RecruiterProfile.OWNER
+        profile.save(update_fields=['company', 'company_role'])
+>>>>>>> Stashed changes
         return Response(CompanySerializer(company).data, status=status.HTTP_201_CREATED)
 
 
@@ -475,7 +488,12 @@ class JoinCompanyView(APIView):
         except Company.DoesNotExist:
             return Response({'join_code': 'No company found with that code.'}, status=status.HTTP_404_NOT_FOUND)
         profile.company = company
+<<<<<<< Updated upstream
         profile.save(update_fields=['company'])
+=======
+        profile.company_role = RecruiterProfile.MEMBER
+        profile.save(update_fields=['company', 'company_role'])
+>>>>>>> Stashed changes
         return Response(CompanySerializer(company).data)
 
 
@@ -497,5 +515,78 @@ class LeaveCompanyView(APIView):
         if profile.company is None:
             return Response({'detail': 'You are not part of a company.'}, status=status.HTTP_400_BAD_REQUEST)
         profile.company = None
+<<<<<<< Updated upstream
         profile.save(update_fields=['company'])
         return Response({'detail': 'You have left the company.'})
+=======
+        profile.company_role = ''
+        profile.save(update_fields=['company', 'company_role'])
+        return Response({'detail': 'You have left the company.'})
+
+
+class RemoveTeammateView(APIView):
+    """
+    Remove a teammate from the company (owner/admin only). Resolves the gap
+    where the only way off a team was voluntary -- a bad-actor teammate
+    could not otherwise be cut off. The owner cannot be removed by anyone
+    (they'd need to leave voluntarily, which is intentional -- ownership
+    transfer isn't implemented, so removing the owner would orphan the
+    company's management).
+    """
+    permission_classes = [IsRecruiter]
+
+    def post(self, request, user_id):
+        profile = request.user.recruiter_profile
+        if not profile.can_manage_teammates:
+            return Response(
+                {'detail': 'Only an owner or admin can remove teammates.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        target = get_object_or_404(
+            RecruiterProfile, user_id=user_id, company=profile.company
+        )
+        if target.user_id == request.user.id:
+            return Response({'detail': 'Use the leave-company endpoint to remove yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+        if target.company_role == RecruiterProfile.OWNER:
+            return Response({'detail': 'The owner cannot be removed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if target.company_role == RecruiterProfile.ADMIN and profile.company_role != RecruiterProfile.OWNER:
+            return Response({'detail': 'Only the owner can remove an admin.'}, status=status.HTTP_403_FORBIDDEN)
+        target.company = None
+        target.company_role = ''
+        target.save(update_fields=['company', 'company_role'])
+        return Response({'detail': f'{target.user.full_name} has been removed from the company.'})
+
+
+class UpdateTeammateRoleView(APIView):
+    """
+    Change a teammate's role (owner only). Lets an owner promote a member
+    to admin, demote an admin back to member, or set/unset viewer
+    (read-only) access -- the granularity that was missing entirely
+    before this: every teammate previously had identical, all-or-nothing
+    access.
+    """
+    permission_classes = [IsRecruiter]
+
+    def patch(self, request, user_id):
+        profile = request.user.recruiter_profile
+        if profile.company is None or profile.company_role != RecruiterProfile.OWNER:
+            return Response(
+                {'detail': 'Only the company owner can change teammate roles.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        new_role = request.data.get('role')
+        valid_roles = {RecruiterProfile.ADMIN, RecruiterProfile.MEMBER, RecruiterProfile.VIEWER}
+        if new_role not in valid_roles:
+            return Response(
+                {'detail': f'Invalid role. Choose from: {sorted(valid_roles)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        target = get_object_or_404(
+            RecruiterProfile, user_id=user_id, company=profile.company
+        )
+        if target.user_id == request.user.id:
+            return Response({'detail': 'The owner cannot change their own role.'}, status=status.HTTP_400_BAD_REQUEST)
+        target.company_role = new_role
+        target.save(update_fields=['company_role'])
+        return Response({'detail': f'{target.user.full_name} is now {new_role}.'})
+>>>>>>> Stashed changes

@@ -17,6 +17,10 @@ const RecruiterDashboard = lazy(() => import('./pages/RecruiterDashboard'))
 const PostJob            = lazy(() => import('./pages/PostJob'))
 const EditJob            = lazy(() => import('./pages/EditJob'))
 const TalentSearch       = lazy(() => import('./pages/TalentSearch'))
+<<<<<<< Updated upstream
+=======
+const TeamSettings       = lazy(() => import('./pages/TeamSettings'))
+>>>>>>> Stashed changes
 const CandidateProfileView = lazy(() => import('./pages/CandidateProfileView'))
 const Profile            = lazy(() => import('./pages/Profile'))
 const ForgotPassword     = lazy(() => import('./pages/ForgotPassword'))
@@ -95,6 +99,14 @@ export default function App() {
                       <TalentSearch />
                     </ProtectedRoute>
                   } />
+<<<<<<< Updated upstream
+=======
+                  <Route path="/recruiter/team" element={
+                    <ProtectedRoute role="recruiter">
+                      <TeamSettings />
+                    </ProtectedRoute>
+                  } />
+>>>>>>> Stashed changes
                   <Route path="/recruiter/candidates/:id" element={
                     <ProtectedRoute role="recruiter">
                       <CandidateProfileView />

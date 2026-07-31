@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import OpenToWorkNudge from '../components/OpenToWorkNudge'
 import { applicationsAPI, matchingAPI, jobsAPI } from '../services/api'
 import JobCard from '../components/JobCard'
 import MatchBreakdown from '../components/MatchBreakdown'
@@ -67,7 +68,7 @@ function ApplicationRow({ app }) {
 }
 
 export default function CandidateDashboard() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const [tab, setTab]       = useState('Applications')
   const [apps, setApps]     = useState([])
   const [matches, setMatches] = useState([])
@@ -127,6 +128,7 @@ export default function CandidateDashboard() {
       </div>
 
       <div className="page-container" style={{marginTop:'-40px',paddingBottom:'40px'}}>
+        <OpenToWorkNudge openToWork={profile?.open_to_work} onEnabled={refreshProfile} />
         <div className="flex gap-1 mb-6 p-1 rounded-xl w-full sm:w-auto inline-flex" style={{background:'white',border:'1px solid var(--border)',display:'inline-flex'}} role="tablist">
           {TABS.map(t=>(
             <button key={t} onClick={()=>setTab(t)} role="tab" aria-selected={tab===t}

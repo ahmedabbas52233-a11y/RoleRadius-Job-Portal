@@ -29,4 +29,9 @@ urlpatterns = [
     path('company/create/', views.CreateCompanyView.as_view(),  name='create_company'),
     path('company/join/',   views.JoinCompanyView.as_view(),    name='join_company'),
     path('company/leave/',  views.LeaveCompanyView.as_view(),   name='leave_company'),
+<<<<<<< Updated upstream
+=======
+    path('company/teammates/<uuid:user_id>/remove/', views.RemoveTeammateView.as_view(), name='remove_teammate'),
+    path('company/teammates/<uuid:user_id>/role/',    views.UpdateTeammateRoleView.as_view(), name='update_teammate_role'),
+>>>>>>> Stashed changes
 ]

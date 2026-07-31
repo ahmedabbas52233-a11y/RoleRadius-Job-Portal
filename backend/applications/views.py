@@ -14,7 +14,11 @@ from .serializers import (
     InterviewRoundRecruiterSerializer, InterviewRoundCreateSerializer,
 )
 from jobs.models import Job
+<<<<<<< Updated upstream
 from accounts.permissions import IsCandidate, IsRecruiter
+=======
+from accounts.permissions import IsCandidate, IsRecruiter, CanManageJobs
+>>>>>>> Stashed changes
 
 logger = logging.getLogger('roleradius')
 
@@ -132,7 +136,7 @@ class JobApplicationsView(generics.ListAPIView):
 
 
 class UpdateApplicationStatusView(APIView):
-    permission_classes = [IsRecruiter]
+    permission_classes = [IsRecruiter, CanManageJobs]
 
     def patch(self, request, pk):
         application = get_object_or_404(
@@ -174,7 +178,11 @@ class BulkUpdateApplicationStatusView(APIView):
     skipped and reported back, not silently forced or allowed to break the
     whole batch.
     """
+<<<<<<< Updated upstream
     permission_classes = [IsRecruiter]
+=======
+    permission_classes = [IsRecruiter, CanManageJobs]
+>>>>>>> Stashed changes
 
     @transaction.atomic
     def patch(self, request):
@@ -294,6 +302,19 @@ class InterviewRoundListCreateView(APIView):
         return Response(InterviewRoundRecruiterSerializer(rounds, many=True).data)
 
     def post(self, request, application_pk):
+<<<<<<< Updated upstream
+=======
+        # GET stays open to a team's read-only VIEWER role (they should be
+        # able to see the interview schedule); only creating a round is
+        # gated -- checked explicitly here rather than at class level,
+        # since permission_classes on an APIView applies to every method.
+        profile = request.user.recruiter_profile
+        if not profile.can_manage_jobs:
+            return Response(
+                {'detail': 'Your role on this team is read-only and cannot make changes.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+>>>>>>> Stashed changes
         application = get_object_or_404(
             Application, pk=application_pk, job__in=Job.objects.manageable_by(request.user)
         )
@@ -316,7 +337,11 @@ class InterviewRoundListCreateView(APIView):
 
 class InterviewRoundDetailView(APIView):
     """Update (outcome/feedback/score/reschedule) or delete a single interview round."""
+<<<<<<< Updated upstream
     permission_classes = [IsRecruiter]
+=======
+    permission_classes = [IsRecruiter, CanManageJobs]
+>>>>>>> Stashed changes
 
     def _get_round(self, request, application_pk, round_pk):
         return get_object_or_404(

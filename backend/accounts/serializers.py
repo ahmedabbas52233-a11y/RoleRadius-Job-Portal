@@ -122,19 +122,39 @@ class CandidateProfileUpdateSerializer(serializers.ModelSerializer):
 
 
 class CompanyTeammateSerializer(serializers.ModelSerializer):
+<<<<<<< Updated upstream
     """Minimal teammate info shown to other members of the same Company -- name/email only."""
     class Meta:
         model = User
         fields = ['id', 'full_name', 'email']
+=======
+    """Minimal teammate info shown to other members of the same Company -- name/email/role."""
+    id = serializers.UUIDField(source='user.id', read_only=True)
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
+    email = serializers.CharField(source='user.email', read_only=True)
+    role = serializers.CharField(source='company_role', read_only=True)
+
+    class Meta:
+        model = RecruiterProfile
+        fields = ['id', 'full_name', 'email', 'role']
+>>>>>>> Stashed changes
 
 
 class CompanySerializer(serializers.ModelSerializer):
     """
+<<<<<<< Updated upstream
     Full detail view -- includes join_code and the teammate roster. Only
     ever returned to a recruiter who is themselves a member of this
     Company (enforced in the view, not here), so exposing join_code here
     is safe: a non-member never reaches a serializer instance for a
     Company they don't belong to.
+=======
+    Full detail view -- includes join_code and the teammate roster (each
+    with their role). Only ever returned to a recruiter who is themselves
+    a member of this Company (enforced in the view, not here), so exposing
+    join_code here is safe: a non-member never reaches a serializer
+    instance for a Company they don't belong to.
+>>>>>>> Stashed changes
     """
     logo_url = serializers.SerializerMethodField()
     teammates = serializers.SerializerMethodField()
@@ -150,8 +170,13 @@ class CompanySerializer(serializers.ModelSerializer):
         return obj.logo.url if obj.logo else None
 
     def get_teammates(self, obj):
+<<<<<<< Updated upstream
         teammates = User.objects.filter(recruiter_profile__company=obj).order_by('full_name')
         return CompanyTeammateSerializer(teammates, many=True).data
+=======
+        profiles = RecruiterProfile.objects.filter(company=obj).select_related('user').order_by('user__full_name')
+        return CompanyTeammateSerializer(profiles, many=True).data
+>>>>>>> Stashed changes
 
 
 class CompanyCreateSerializer(serializers.ModelSerializer):

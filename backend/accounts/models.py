@@ -170,6 +170,20 @@ class Company(models.Model):
 
 
 class RecruiterProfile(models.Model):
+    # Company-team role tiers. Resolves a real gap the flat model had: no
+    # way to have a read-only recruiter, and no way to revoke a bad-actor
+    # teammate's access short of them leaving voluntarily.
+    OWNER  = 'owner'
+    ADMIN  = 'admin'
+    MEMBER = 'member'
+    VIEWER = 'viewer'
+    COMPANY_ROLE_CHOICES = [
+        (OWNER,  'Owner'),   # the recruiter who created the company
+        (ADMIN,  'Admin'),   # can manage jobs and manage teammates (except the owner)
+        (MEMBER, 'Member'),  # can manage jobs, cannot manage teammates
+        (VIEWER, 'Viewer'),  # read-only: can see jobs/applicants, cannot edit/delete/change status
+    ]
+
     user                = models.OneToOneField(User, on_delete=models.CASCADE, related_name='recruiter_profile')
     company_name        = models.CharField(max_length=200)
     company_description = models.TextField(blank=True)
@@ -188,6 +202,12 @@ class RecruiterProfile(models.Model):
     company             = models.ForeignKey(
         Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='recruiters'
     )
+<<<<<<< Updated upstream
+=======
+    # Blank when company is None (role is meaningless for a solo recruiter).
+    # Set to OWNER on company creation, MEMBER on joining via code.
+    company_role        = models.CharField(max_length=10, choices=COMPANY_ROLE_CHOICES, blank=True)
+>>>>>>> Stashed changes
     created_at          = models.DateTimeField(auto_now_add=True)
     updated_at          = models.DateTimeField(auto_now=True)
 
@@ -196,6 +216,24 @@ class RecruiterProfile(models.Model):
 
     def __str__(self):
         return f'{self.company_name} ({self.user.email})'
+
+    @property
+    def can_manage_jobs(self) -> bool:
+        """
+        Whether this recruiter can create/edit/delete jobs and applications
+        -- as opposed to merely viewing them. True for a solo recruiter
+        (no company) acting on their own jobs, and for owner/admin/member
+        roles on a team. False only for VIEWER, a deliberately read-only
+        teammate role.
+        """
+        if self.company is None:
+            return True
+        return self.company_role != self.VIEWER
+
+    @property
+    def can_manage_teammates(self) -> bool:
+        """Whether this recruiter can remove teammates or change their roles. Owner/admin only."""
+        return self.company is not None and self.company_role in (self.OWNER, self.ADMIN)
 
 
 class PasswordResetToken(models.Model):

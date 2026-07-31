@@ -527,3 +527,209 @@ class ManageableJobsAccessTests(TestCase):
             {'title': 'Should Fail'}, format='json'
         )
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+<<<<<<< Updated upstream
+=======
+
+
+class CompanyRoleTests(TestCase):
+    """
+    Tests the role-tier system (owner/admin/member/viewer) that resolves
+    the flat-team-permission gap: previously every teammate had identical
+    access with no way to have a read-only recruiter, and no way to revoke
+    a bad-actor's access short of them leaving voluntarily.
+    """
+    def setUp(self):
+        from jobs.models import Job
+        self.client = APIClient()
+        self.owner = make_recruiter(email='owner3@test.com', full_name='Owner Recruiter')
+        self.member = make_recruiter(email='member3@test.com', full_name='Member Recruiter')
+
+        self.client.force_authenticate(user=self.owner)
+        create_res = self.client.post(reverse('create_company'), {'name': 'RoleCo'}, format='json')
+        self.join_code = create_res.data['join_code']
+
+        self.client.force_authenticate(user=self.member)
+        self.client.post(reverse('join_company'), {'join_code': self.join_code}, format='json')
+
+        self.job = Job.objects.create(
+            recruiter=self.owner, title='Backend Dev', company_name='RoleCo',
+            description='d', requirements='r',
+        )
+
+    def _remove_url(self, user):
+        return reverse('remove_teammate', kwargs={'user_id': user.id})
+
+    def _role_url(self, user):
+        return reverse('update_teammate_role', kwargs={'user_id': user.id})
+
+    # -- Role assignment on create/join/leave --------------------------------
+
+    def test_creator_becomes_owner(self):
+        self.owner.recruiter_profile.refresh_from_db()
+        self.assertEqual(self.owner.recruiter_profile.company_role, 'owner')
+
+    def test_joiner_becomes_member(self):
+        self.member.recruiter_profile.refresh_from_db()
+        self.assertEqual(self.member.recruiter_profile.company_role, 'member')
+
+    def test_leaving_clears_role(self):
+        self.client.force_authenticate(user=self.member)
+        self.client.post(reverse('leave_company'))
+        self.member.recruiter_profile.refresh_from_db()
+        self.assertEqual(self.member.recruiter_profile.company_role, '')
+
+    def test_my_company_response_includes_my_role(self):
+        self.client.force_authenticate(user=self.member)
+        res = self.client.get(reverse('my_company'))
+        self.assertEqual(res.data['my_role'], 'member')
+        self.assertTrue(res.data['can_manage_jobs'])
+        self.assertFalse(res.data['can_manage_teammates'])
+
+    def test_teammates_list_includes_roles(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.get(reverse('my_company'))
+        roles = {t['email']: t['role'] for t in res.data['teammates']}
+        self.assertEqual(roles['owner3@test.com'], 'owner')
+        self.assertEqual(roles['member3@test.com'], 'member')
+
+    # -- Viewer role: read-only ------------------------------------------------
+
+    def test_viewer_can_view_but_not_edit_jobs(self):
+        self.client.force_authenticate(user=self.owner)
+        self.client.patch(self._role_url(self.member), {'role': 'viewer'}, format='json')
+        # force_authenticate reuses this exact Python User object; its
+        # .recruiter_profile relation was already cached when setUp joined
+        # the company, so it won't see the just-changed role without an
+        # explicit refresh.
+        self.member.refresh_from_db()
+
+        self.client.force_authenticate(user=self.member)
+        # Can still see the job list and applicants
+        list_res = self.client.get(reverse('my_jobs'))
+        self.assertEqual(list_res.status_code, status.HTTP_200_OK)
+        # Cannot edit it
+        edit_res = self.client.patch(
+            reverse('job_update', kwargs={'pk': self.job.pk}),
+            {'title': 'Viewer Edit'}, format='json'
+        )
+        self.assertEqual(edit_res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_cannot_create_job(self):
+        self.client.force_authenticate(user=self.owner)
+        self.client.patch(self._role_url(self.member), {'role': 'viewer'}, format='json')
+        self.member.refresh_from_db()
+
+        self.client.force_authenticate(user=self.member)
+        res = self.client.post(reverse('job_create'), {
+            'title': 'New Job', 'description': 'd', 'requirements': 'r',
+            'skills_required': ['Python'], 'location': 'London',
+            'job_type': 'full_time', 'experience_level': 'mid', 'work_mode': 'remote',
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_cannot_change_application_status(self):
+        from jobs.models import Job as JobModel
+        from applications.models import Application
+        candidate = make_candidate()
+        app = Application.objects.create(job=self.job, candidate=candidate)
+
+        self.client.force_authenticate(user=self.owner)
+        self.client.patch(self._role_url(self.member), {'role': 'viewer'}, format='json')
+        self.member.refresh_from_db()
+
+        self.client.force_authenticate(user=self.member)
+        res = self.client.patch(
+            reverse('update_status', kwargs={'pk': app.pk}), {'status': 'reviewing'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_can_still_view_applicants(self):
+        self.client.force_authenticate(user=self.owner)
+        self.client.patch(self._role_url(self.member), {'role': 'viewer'}, format='json')
+        self.member.refresh_from_db()
+
+        self.client.force_authenticate(user=self.member)
+        res = self.client.get(reverse('job_applications', kwargs={'job_id': self.job.pk}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    # -- Removing teammates ----------------------------------------------------
+
+    def test_owner_can_remove_member(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.post(self._remove_url(self.member))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.member.recruiter_profile.refresh_from_db()
+        self.assertIsNone(self.member.recruiter_profile.company)
+
+    def test_member_cannot_remove_anyone(self):
+        other = make_recruiter(email='other3@test.com')
+        self.client.force_authenticate(user=other)
+        self.client.post(reverse('join_company'), {'join_code': self.join_code}, format='json')
+
+        self.client.force_authenticate(user=self.member)
+        res = self.client.post(self._remove_url(other))
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_owner_cannot_be_removed(self):
+        self.client.force_authenticate(user=self.owner)
+        # promote member to admin first so we're testing "even an admin can't remove the owner"
+        self.client.patch(self._role_url(self.member), {'role': 'admin'}, format='json')
+        self.member.refresh_from_db()
+        self.client.force_authenticate(user=self.member)
+        res = self.client.post(self._remove_url(self.owner))
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_admin_cannot_remove_another_admin(self):
+        other = make_recruiter(email='other4@test.com')
+        self.client.force_authenticate(user=other)
+        self.client.post(reverse('join_company'), {'join_code': self.join_code}, format='json')
+
+        self.client.force_authenticate(user=self.owner)
+        self.client.patch(self._role_url(self.member), {'role': 'admin'}, format='json')
+        self.client.patch(self._role_url(other), {'role': 'admin'}, format='json')
+        self.member.refresh_from_db()
+
+        self.client.force_authenticate(user=self.member)
+        res = self.client.post(self._remove_url(other))
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_remove_self_via_remove_endpoint(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.post(self._remove_url(self.owner))
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # -- Changing roles ----------------------------------------------------------
+
+    def test_owner_can_promote_member_to_admin(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.patch(self._role_url(self.member), {'role': 'admin'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.member.recruiter_profile.refresh_from_db()
+        self.assertEqual(self.member.recruiter_profile.company_role, 'admin')
+
+    def test_non_owner_cannot_change_roles(self):
+        self.client.force_authenticate(user=self.member)
+        other = make_recruiter(email='other5@test.com')
+        self.client.force_authenticate(user=other)
+        self.client.post(reverse('join_company'), {'join_code': self.join_code}, format='json')
+
+        self.client.force_authenticate(user=self.member)
+        res = self.client.patch(self._role_url(other), {'role': 'admin'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_invalid_role_rejected(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.patch(self._role_url(self.member), {'role': 'superadmin'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_owner_cannot_change_own_role(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.patch(self._role_url(self.owner), {'role': 'member'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_solo_recruiter_always_can_manage_own_jobs(self):
+        """A recruiter with no company at all should never be blocked by the viewer check."""
+        solo = make_recruiter(email='solo3@test.com')
+        self.assertTrue(solo.recruiter_profile.can_manage_jobs)
+        self.assertFalse(solo.recruiter_profile.can_manage_teammates)
+>>>>>>> Stashed changes

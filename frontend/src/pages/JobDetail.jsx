@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { jobsAPI, applicationsAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import OpenToWorkNudge from '../components/OpenToWorkNudge'
 import { MapPin, Clock, Banknote, Briefcase, Monitor, GraduationCap, Zap, Building2, ArrowLeft } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -12,7 +13,7 @@ const EXP_LABELS  = { entry:'Entry Level', mid:'Mid Level', senior:'Senior', lea
 
 export default function JobDetail() {
   const { id } = useParams()
-  const { isAuthenticated, isCandidate } = useAuth()
+  const { isAuthenticated, isCandidate, profile, refreshProfile } = useAuth()
   const [job, setJob]           = useState(null)
   const [loading, setLoading]   = useState(true)
   const [applying, setApplying] = useState(false)
@@ -113,6 +114,12 @@ export default function JobDetail() {
                   </div>
                   <p className="font-semibold mb-1" style={{color:'var(--text-1)'}}>Application submitted!</p>
                   <p className="text-sm" style={{color:'var(--text-3)'}}>You&apos;ll be notified of any updates.</p>
+<<<<<<< Updated upstream
+=======
+                  <div className="text-left mt-4">
+                    <OpenToWorkNudge openToWork={profile?.open_to_work} variant="post-apply" onEnabled={refreshProfile} />
+                  </div>
+>>>>>>> Stashed changes
                 </div>
               ) : !isAuthenticated ? (
                 <div className="text-center">

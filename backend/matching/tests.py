@@ -118,6 +118,21 @@ class SkillSynonymTests(TestCase):
         score, _, _ = _skills_overlap(['AWS'], ['Amazon Web Services'])
         self.assertEqual(score, 1.0)
 
+<<<<<<< Updated upstream
+=======
+    def test_job_requires_nextjs_candidate_lists_next(self):
+        score, _, _ = _skills_overlap(['Next.js'], ['NextJS'])
+        self.assertEqual(score, 1.0)
+
+    def test_job_requires_rails_candidate_lists_ror(self):
+        score, _, _ = _skills_overlap(['Ruby on Rails'], ['RoR'])
+        self.assertEqual(score, 1.0)
+
+    def test_job_requires_seo_candidate_lists_full_term(self):
+        score, _, _ = _skills_overlap(['SEO'], ['Search Engine Optimization'])
+        self.assertEqual(score, 1.0)
+
+>>>>>>> Stashed changes
     def test_synonym_matching_does_not_create_false_positives(self):
         """Two genuinely unrelated skills must never be conflated by canonicalization."""
         score, _, missing = _skills_overlap(['Python'], ['JavaScript'])

@@ -140,6 +140,12 @@ export const authAPI = {
   getPublicCandidate: (userId) => api.get(`/auth/candidates/${userId}/`),
   searchCandidates:   (params) => api.get('/auth/candidates/search/', { params }),
   getPublicRecruiter: (userId) => api.get(`/auth/recruiters/${userId}/`),
+  getMyCompany:       () => api.get('/auth/company/'),
+  createCompany:      (data) => api.post('/auth/company/create/', data),
+  joinCompany:        (joinCode) => api.post('/auth/company/join/', { join_code: joinCode }),
+  leaveCompany:       () => api.post('/auth/company/leave/'),
+  removeTeammate:     (userId) => api.post(`/auth/company/teammates/${userId}/remove/`),
+  updateTeammateRole: (userId, role) => api.patch(`/auth/company/teammates/${userId}/role/`, { role }),
 }
 
 // ── Jobs ──────────────────────────────────────────────────────────────────────

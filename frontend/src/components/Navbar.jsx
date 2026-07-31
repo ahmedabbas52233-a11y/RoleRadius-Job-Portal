@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+<<<<<<< Updated upstream
 import { Zap, Menu, X, User, Users, LogOut, PlusCircle, LayoutDashboard, ChevronDown } from 'lucide-react'
+=======
+import { Zap, Menu, X, User, Users, LogOut, PlusCircle, LayoutDashboard, ChevronDown, Building2 } from 'lucide-react'
+>>>>>>> Stashed changes
 import toast from 'react-hot-toast'
 
 export default function Navbar() {
@@ -37,7 +41,11 @@ export default function Navbar() {
             {[
               {to:'/jobs', label:'Browse Jobs'},
               ...(isCandidate ? [{to:'/dashboard', label:'Dashboard'}] : []),
+<<<<<<< Updated upstream
               ...(isRecruiter ? [{to:'/recruiter/dashboard', label:'Dashboard'}, {to:'/recruiter/talent', label:'Find Talent'}] : []),
+=======
+              ...(isRecruiter ? [{to:'/recruiter/dashboard', label:'Dashboard'}, {to:'/recruiter/talent', label:'Find Talent'}, {to:'/recruiter/team', label:'Team'}] : []),
+>>>>>>> Stashed changes
             ].map(({to, label}) => (
               <Link key={to} to={to}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -120,6 +128,12 @@ export default function Navbar() {
                   <Link to="/recruiter/talent" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium hover:bg-surface-3 transition-colors" style={{color:'var(--text-2)'}}>
                     <Users className="w-4 h-4 text-primary-500" aria-hidden="true" /> Find Talent
                   </Link>
+<<<<<<< Updated upstream
+=======
+                  <Link to="/recruiter/team" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium hover:bg-surface-3 transition-colors" style={{color:'var(--text-2)'}}>
+                    <Building2 className="w-4 h-4 text-primary-500" aria-hidden="true" /> Team Settings
+                  </Link>
+>>>>>>> Stashed changes
                   <Link to="/recruiter/post-job" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium hover:bg-surface-3 transition-colors" style={{color:'var(--text-2)'}}>
                     <PlusCircle className="w-4 h-4 text-primary-500" aria-hidden="true" /> Post a Job
                   </Link>

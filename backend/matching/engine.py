@@ -248,6 +248,41 @@ SKILL_SYNONYMS: dict[str, list[str]] = {
     'power bi': ['powerbi'],
     'scikit-learn': ['sklearn', 'scikit learn'],
     'pytorch': ['torch'],
+<<<<<<< Updated upstream
+=======
+    # -- Added: frontend frameworks/tooling --
+    'next.js': ['nextjs', 'next js'],
+    'nuxt.js': ['nuxtjs', 'nuxt js'],
+    'tailwind css': ['tailwind', 'tailwindcss'],
+    'react native': ['reactnative', 'react-native'],
+    # -- Added: backend frameworks --
+    'ruby on rails': ['rails', 'ror'],
+    'django rest framework': ['drf'],
+    'spring boot': ['springboot', 'spring'],
+    # -- Added: infra / cloud / big data --
+    'apache spark': ['spark', 'pyspark'],
+    'apache kafka': ['kafka'],
+    'github actions': ['gh actions'],
+    'infrastructure as code': ['iac'],
+    'site reliability engineering': ['sre'],
+    'amazon dynamodb': ['dynamodb', 'dynamo db'],
+    'oracle database': ['oracle db', 'oracle sql'],
+    # -- Added: data / AI --
+    'deep learning': ['dl'],
+    'artificial intelligence': ['ai'],
+    'data structures and algorithms': ['dsa'],
+    'extract transform load': ['etl'],
+    'business intelligence': ['bi'],
+    # -- Added: process / methodology (deliberately excludes short/ambiguous
+    # tokens like "cv", "ui", "ux", bare "api" -- too likely to collide with
+    # unrelated meanings in a skills list) --
+    'object-oriented programming': ['oop'],
+    'test driven development': ['tdd'],
+    'quality assurance': ['qa'],
+    'search engine optimization': ['seo'],
+    'user acceptance testing': ['uat'],
+    'agile software development': ['agile'],
+>>>>>>> Stashed changes
 }
 
 

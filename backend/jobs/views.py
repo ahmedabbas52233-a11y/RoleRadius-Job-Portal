@@ -12,7 +12,11 @@ from .serializers import (
     JobCreateUpdateSerializer, SavedJobSerializer
 )
 from accounts.models import User
+<<<<<<< Updated upstream
 from accounts.permissions import IsRecruiter
+=======
+from accounts.permissions import IsRecruiter, CanManageJobs
+>>>>>>> Stashed changes
 
 
 class JobFilter(FilterSet):
@@ -131,7 +135,7 @@ class RecruiterJobListView(generics.ListAPIView):
 
 class JobCreateView(generics.CreateAPIView):
     serializer_class = JobCreateUpdateSerializer
-    permission_classes = [IsRecruiter]
+    permission_classes = [IsRecruiter, CanManageJobs]
 
     def perform_create(self, serializer):
         recruiter_profile = self.request.user.recruiter_profile
@@ -152,7 +156,7 @@ class JobCreateView(generics.CreateAPIView):
 
 class JobUpdateView(generics.UpdateAPIView):
     serializer_class = JobCreateUpdateSerializer
-    permission_classes = [IsRecruiter]
+    permission_classes = [IsRecruiter, CanManageJobs]
 
     def get_queryset(self):
         return Job.objects.manageable_by(self.request.user)
@@ -178,7 +182,7 @@ class JobDeleteView(generics.DestroyAPIView):
     Soft-delete: sets is_active=False and deleted_at timestamp.
     Hard deletion would cascade-delete all linked applications and lose history.
     """
-    permission_classes = [IsRecruiter]
+    permission_classes = [IsRecruiter, CanManageJobs]
 
     def get_queryset(self):
         return Job.objects.manageable_by(self.request.user)
@@ -194,7 +198,7 @@ class JobDeleteView(generics.DestroyAPIView):
 
 
 class JobToggleActiveView(APIView):
-    permission_classes = [IsRecruiter]
+    permission_classes = [IsRecruiter, CanManageJobs]
 
     def post(self, request, pk):
         job = get_object_or_404(Job.objects.manageable_by(request.user), pk=pk)
