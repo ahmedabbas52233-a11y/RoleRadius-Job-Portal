@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { jobsAPI, applicationsAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
-import OpenToWorkNudge from '../components/OpenToWorkNudge'
-import { MapPin, Clock, Banknote, Briefcase, Monitor, GraduationCap, Zap, Building2, ArrowLeft } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import toast from 'react-hot-toast'
+import { formatDistanceToNow } from 'date-fns';
+import { ArrowLeft, Banknote, Briefcase, Building2, Clock, GraduationCap, MapPin, Monitor, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
+import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { applicationsAPI, jobsAPI } from '../services/api';
 
 const TYPE_LABELS = { full_time:'Full-time', part_time:'Part-time', contract:'Contract', freelance:'Freelance', internship:'Internship' }
 const MODE_LABELS = { onsite:'On-site', remote:'Remote', hybrid:'Hybrid' }
@@ -13,6 +12,7 @@ const EXP_LABELS  = { entry:'Entry Level', mid:'Mid Level', senior:'Senior', lea
 
 export default function JobDetail() {
   const { id } = useParams()
+  const { isAuthenticated, isCandidate, profile, refreshProfile } = useAuth()
   const { isAuthenticated, isCandidate, profile, refreshProfile } = useAuth()
   const [job, setJob]           = useState(null)
   const [loading, setLoading]   = useState(true)

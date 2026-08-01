@@ -170,12 +170,6 @@ The backend is split into four focused Django apps:
 | `applications` | The application pipeline, status transitions, interview rounds, bulk actions |
 | `matching` | The scoring engine — no models of its own, just logic other apps call into |
 
-## 🚀 Getting Started
-
-=======
-> **Note:** Replace the placeholders below with real screenshots once
-> captured — drop image files into `docs/screenshots/` using the same
-> filenames referenced here, or update the paths to match whatever you save.
 
 | | |
 |---|---|
@@ -190,10 +184,6 @@ The backend is split into four focused Django apps:
 | **Team / Company Settings** | **Profile / CV** |
 | `[ 📸 screenshot placeholder — docs/screenshots/team-settings.png ]` | `[ 📸 screenshot placeholder — docs/screenshots/profile-cv.png ]` |
 
-Once you have real images, swap a placeholder cell for:
-```markdown
-![Home page](docs/screenshots/home.png)
-```
 
 ## ✨ Features
 
